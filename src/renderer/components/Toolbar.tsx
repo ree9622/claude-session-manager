@@ -36,11 +36,12 @@ export function Toolbar({ viewMode, onViewModeChange, activeCount, sidebarCollap
           {activeCount > 0 ? t('toolbar.active', { n: activeCount }) : t('toolbar.noTerminals')}
         </span>
         <button
-          className="btn btn-sm"
+          className="btn-icon"
           onClick={onLangChange}
           title="Language / 언어"
+          style={{ fontSize: 16 }}
         >
-          {lang === 'ko' ? 'EN' : '한국어'}
+          {lang === 'ko' ? '🇺🇸' : '🇰🇷'}
         </button>
       </div>
     </div>

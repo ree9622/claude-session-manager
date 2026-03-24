@@ -183,8 +183,7 @@ export function App() {
 
   const handleFocusTerminal = useCallback((ptyId: string) => {
     setFocusedTerminal(ptyId);
-    if (viewMode === 'thumbnail') setViewMode('focus');
-  }, [viewMode]);
+  }, []);
 
   // 3) DnD reorder
   const handleReorderTerminals = useCallback((fromIndex: number, toIndex: number) => {
