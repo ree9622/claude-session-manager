@@ -113,7 +113,7 @@ export function Sidebar({
   onNewSession, onGenerateName, onDeleteSession, onCleanup, loading,
 }: SidebarProps) {
   const [searchValue, setSearchValue] = useState('');
-  const [sortMode, setSortMode] = useState<SortMode>('project');
+  const [sortMode, setSortMode] = useState<SortMode>('time');
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
 
@@ -172,8 +172,8 @@ export function Sidebar({
         </div>
         <div className="sidebar-actions">
           <div className="sort-toggle">
-            <button className={`sort-btn ${sortMode === 'project' ? 'active' : ''}`} onClick={() => setSortMode('project')}>{t('sidebar.sortProject')}</button>
             <button className={`sort-btn ${sortMode === 'time' ? 'active' : ''}`} onClick={() => setSortMode('time')}>{t('sidebar.sortTime')}</button>
+            <button className={`sort-btn ${sortMode === 'project' ? 'active' : ''}`} onClick={() => setSortMode('project')}>{t('sidebar.sortProject')}</button>
           </div>
           <button className="btn btn-sm btn-danger" onClick={async () => {
             const deleted = await onCleanup(30);
