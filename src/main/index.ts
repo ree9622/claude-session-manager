@@ -2,12 +2,16 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'path';
 import { PtyManager } from './pty-manager';
 import { SessionParser } from './session-parser';
+import { stateStore, SavedTerminal } from './state-store';
+import { logger } from './logger';
 
 let mainWindow: BrowserWindow | null = null;
 const ptyManager = new PtyManager();
 const sessionParser = new SessionParser();
 
 function createWindow() {
+  logger.info('app', 'Creating main window');
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -68,14 +72,20 @@ ipcMain.handle('sessions:delete-old', async (_e, daysOld: number) => {
 
 // PTY management
 ipcMain.handle('pty:create', async (_e, options: { sessionId?: string; cwd?: string; name?: string }) => {
-  const id = ptyManager.create(options);
-  ptyManager.onData(id, (data) => {
-    mainWindow?.webContents.send(`pty:data:${id}`, data);
-  });
-  ptyManager.onExit(id, (exitCode) => {
-    mainWindow?.webContents.send(`pty:exit:${id}`, exitCode);
-  });
-  return id;
+  logger.info('ipc', 'pty:create called', options);
+  try {
+    const id = ptyManager.create(options);
+    ptyManager.onData(id, (data) => {
+      mainWindow?.webContents.send(`pty:data:${id}`, data);
+    });
+    ptyManager.onExit(id, (exitCode) => {
+      mainWindow?.webContents.send(`pty:exit:${id}`, exitCode);
+    });
+    return id;
+  } catch (err) {
+    logger.error('ipc', 'pty:create failed', { error: String(err), options });
+    throw err;
+  }
 });
 
 ipcMain.handle('pty:write', async (_e, id: string, data: string) => {
@@ -98,6 +108,24 @@ ipcMain.handle('pty:list', async () => {
   return ptyManager.list();
 });
 
+// State persistence
+ipcMain.handle('state:save', async (_e, terminals: SavedTerminal[]) => {
+  stateStore.save(terminals);
+});
+
+ipcMain.handle('state:load', async () => {
+  return stateStore.load();
+});
+
+// Logging
+ipcMain.handle('log:get-recent', async (_e, lines: number) => {
+  return logger.getRecentLogs(lines);
+});
+
+ipcMain.handle('log:get-path', async () => {
+  return logger.getLogPath();
+});
+
 // Shell
 ipcMain.handle('shell:open-external', async (_e, url: string) => {
   shell.openExternal(url);
@@ -107,6 +135,14 @@ ipcMain.handle('shell:open-external', async (_e, url: string) => {
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
+  // Save terminal state before quitting (don't kill — they're saved for restore)
+  const terminals = ptyManager.list();
+  const toSave: SavedTerminal[] = terminals
+    .filter(t => t.status === 'running')
+    .map(t => ({ sessionId: t.sessionId, name: t.name, cwd: t.cwd }));
+  stateStore.save(toSave);
+  logger.info('app', `Shutting down, saved ${toSave.length} terminals`);
+
   ptyManager.killAll();
   app.quit();
 });

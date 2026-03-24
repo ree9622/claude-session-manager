@@ -15,10 +15,48 @@ export function App() {
   const [showNewSession, setShowNewSession] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Load sessions on mount
+  // Load sessions + restore saved terminals on mount
   useEffect(() => {
     loadSessions();
+    restoreSavedTerminals();
   }, []);
+
+  // Save terminal state on window close
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const toSave = activeTerminals
+        .filter(t => t.status === 'running')
+        .map(t => ({ sessionId: t.sessionId, name: t.name, cwd: t.cwd }));
+      window.api.state.save(toSave);
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [activeTerminals]);
+
+  const restoreSavedTerminals = async () => {
+    try {
+      const saved = await window.api.state.load();
+      if (saved.length === 0) return;
+      console.log('[restore] Restoring', saved.length, 'terminals');
+
+      for (const t of saved) {
+        const ptyId = await window.api.pty.create({
+          sessionId: t.sessionId,
+          cwd: t.cwd,
+          name: t.name,
+        });
+        setActiveTerminals(prev => [...prev, {
+          ptyId,
+          sessionId: t.sessionId,
+          name: t.name,
+          cwd: t.cwd,
+          status: 'running',
+        }]);
+      }
+    } catch (err) {
+      console.error('[restore] Failed:', err);
+    }
+  };
 
   const loadSessions = async () => {
     setLoading(true);
@@ -42,21 +80,22 @@ export function App() {
   }, []);
 
   const handleResumeSession = useCallback(async (session: SessionInfo) => {
-    const cwd = session.projectDir
-      .replace(/^([A-Z])--/, '$1:\\')
-      .replace(/--/g, '\\');
+    const name = session.name || session.firstPrompt.slice(0, 40);
+    console.log('[resume]', { id: session.id, cwd: session.cwd, name });
 
     const ptyId = await window.api.pty.create({
       sessionId: session.id,
-      cwd,
-      name: session.name || session.firstPrompt.slice(0, 40),
+      cwd: session.cwd,
+      name,
     });
+
+    console.log('[resume] pty created:', ptyId);
 
     setActiveTerminals(prev => [...prev, {
       ptyId,
       sessionId: session.id,
-      name: session.name || session.firstPrompt.slice(0, 40),
-      cwd,
+      name,
+      cwd: session.cwd,
       status: 'running',
     }]);
   }, []);

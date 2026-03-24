@@ -2,6 +2,7 @@ export interface SessionInfo {
   id: string;
   projectDir: string;
   projectName: string;
+  cwd: string;
   firstPrompt: string;
   lastActivity: number;
   messageCount: number;
@@ -38,6 +39,14 @@ declare global {
         list: () => Promise<any[]>;
         onData: (id: string, callback: (data: string) => void) => () => void;
         onExit: (id: string, callback: (exitCode: number) => void) => () => void;
+      };
+      state: {
+        save: (terminals: Array<{ sessionId?: string; name: string; cwd: string }>) => Promise<void>;
+        load: () => Promise<Array<{ sessionId?: string; name: string; cwd: string }>>;
+      };
+      log: {
+        getRecent: (lines?: number) => Promise<string>;
+        getPath: () => Promise<string>;
       };
       openExternal: (url: string) => void;
     };

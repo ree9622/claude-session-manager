@@ -1,6 +1,8 @@
 import * as pty from 'node-pty';
 import crypto from 'crypto';
 import os from 'os';
+import fs from 'fs';
+import { logger } from './logger';
 
 interface PtyInstance {
   id: string;
@@ -18,41 +20,65 @@ export class PtyManager {
   create(options: { sessionId?: string; cwd?: string; name?: string }): string {
     const id = crypto.randomUUID() as string;
     const cwd = options.cwd || os.homedir();
-    // Use bash (Git Bash on Windows) since claude runs in bash
+
+    // Validate cwd exists
+    if (!fs.existsSync(cwd)) {
+      logger.error('pty', `cwd does not exist: ${cwd}, falling back to homedir`);
+    }
+    const safeCwd = fs.existsSync(cwd) ? cwd : os.homedir();
+
     const shell = process.platform === 'win32'
       ? 'C:\\Program Files\\Git\\bin\\bash.exe'
       : 'bash';
 
-    // Spawn interactive bash, then send claude command
-    const ptyProcess = pty.spawn(shell, ['--login', '-i'], {
-      name: 'xterm-256color',
-      cols: 120,
-      rows: 30,
-      cwd,
-      env: { ...process.env } as Record<string, string>,
+    logger.info('pty', 'Creating PTY', {
+      id: id.slice(0, 8),
+      sessionId: options.sessionId?.slice(0, 8),
+      cwd: safeCwd,
+      shell,
     });
+
+    let ptyProcess: pty.IPty;
+    try {
+      ptyProcess = pty.spawn(shell, ['--login', '-i'], {
+        name: 'xterm-256color',
+        cols: 120,
+        rows: 30,
+        cwd: safeCwd,
+        env: { ...process.env } as Record<string, string>,
+      });
+    } catch (err) {
+      logger.error('pty', 'Failed to spawn PTY', { error: String(err), cwd: safeCwd, shell });
+      throw err;
+    }
+
+    logger.info('pty', `PTY spawned, pid=${ptyProcess.pid}`);
 
     // Send claude command after shell is ready
     setTimeout(() => {
+      let cmd: string;
       if (options.sessionId) {
-        ptyProcess.write(`claude --resume ${options.sessionId}\r`);
+        cmd = `claude --resume ${options.sessionId}`;
       } else {
         const nameArg = options.name ? ` --name "${options.name}"` : '';
-        ptyProcess.write(`claude${nameArg}\r`);
+        cmd = `claude${nameArg}`;
       }
-    }, 500);
+      logger.info('pty', `Sending command: ${cmd}`);
+      ptyProcess.write(`${cmd}\r`);
+    }, 800);
 
     const instance: PtyInstance = {
       id,
       process: ptyProcess,
       name: options.name || `Session ${this.instances.size + 1}`,
       sessionId: options.sessionId,
-      cwd,
+      cwd: safeCwd,
       createdAt: Date.now(),
       status: 'running',
     };
 
-    ptyProcess.onExit(() => {
+    ptyProcess.onExit(({ exitCode }) => {
+      logger.info('pty', `PTY exited`, { id: id.slice(0, 8), exitCode });
       instance.status = 'exited';
     });
 
@@ -91,6 +117,7 @@ export class PtyManager {
   kill(id: string) {
     const instance = this.instances.get(id);
     if (instance && instance.status === 'running') {
+      logger.info('pty', `Killing PTY`, { id: id.slice(0, 8) });
       instance.process.kill();
       instance.status = 'exited';
     }

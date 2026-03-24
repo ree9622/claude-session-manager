@@ -36,6 +36,19 @@ contextBridge.exposeInMainWorld('api', {
     },
   },
 
+  // State persistence
+  state: {
+    save: (terminals: Array<{ sessionId?: string; name: string; cwd: string }>) =>
+      ipcRenderer.invoke('state:save', terminals),
+    load: () => ipcRenderer.invoke('state:load') as Promise<Array<{ sessionId?: string; name: string; cwd: string }>>,
+  },
+
+  // Logging
+  log: {
+    getRecent: (lines: number = 100) => ipcRenderer.invoke('log:get-recent', lines) as Promise<string>,
+    getPath: () => ipcRenderer.invoke('log:get-path') as Promise<string>,
+  },
+
   // Shell
   openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
 });

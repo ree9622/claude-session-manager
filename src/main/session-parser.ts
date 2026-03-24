@@ -7,6 +7,7 @@ export interface SessionInfo {
   id: string;
   projectDir: string;
   projectName: string;
+  cwd: string;
   firstPrompt: string;
   lastActivity: number;
   messageCount: number;
@@ -97,12 +98,18 @@ export class SessionParser {
     const rl = readline.createInterface({ input: stream });
 
     let firstPrompt = '';
+    let cwd = '';
     let messageCount = 0;
 
     for await (const line of rl) {
       try {
         const msg = JSON.parse(line);
         messageCount++;
+
+        // Extract actual cwd from first message that has it
+        if (!cwd && msg.cwd) {
+          cwd = msg.cwd;
+        }
 
         if (msg.type === 'user' && !firstPrompt && msg.message?.content) {
           const content = msg.message.content;
@@ -128,6 +135,7 @@ export class SessionParser {
       id: sessionId,
       projectDir,
       projectName: this.projectDirToName(projectDir),
+      cwd: cwd || this.projectDirToPath(projectDir),
       firstPrompt: firstPrompt || '(세션 데이터 없음)',
       lastActivity: stat.mtimeMs,
       messageCount,
