@@ -372,11 +372,17 @@ body {
   gap: 6px;
 }
 
-.session-item .session-project {
-  background: var(--bg-tertiary);
-  padding: 2px 6px;
+.session-item-meta {
+  margin-top: 3px;
+}
+
+.session-project-tag {
+  background: var(--bg-primary);
+  padding: 1px 6px;
   border-radius: 4px;
   font-size: 10px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
 }
 
 /* Toolbar */

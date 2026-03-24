@@ -70,6 +70,11 @@ function SessionItem({
             {session.name || session.id.slice(0, 8)}
           </div>
           <div className="session-prompt">{session.firstPrompt}</div>
+          {showProject && (
+            <div className="session-item-meta">
+              <span className="session-project-tag">{session.projectName}</span>
+            </div>
+          )}
         </div>
         <span className="session-time">{timeAgo(session.lastActivity)}</span>
       </div>
