@@ -72,6 +72,16 @@ export function App() {
   }, []);
 
   const handleResumeSession = useCallback(async (session: SessionInfo) => {
+    // Prevent duplicate: check if this session is already open
+    const alreadyOpen = activeTerminals.find(
+      t => t.sessionId === session.id && t.status === 'running'
+    );
+    if (alreadyOpen) {
+      // Focus the existing one instead
+      setFocusedTerminal(alreadyOpen.ptyId);
+      return;
+    }
+
     const name = session.name || session.firstPrompt.slice(0, 40);
     const ptyId = await window.api.pty.create({
       sessionId: session.id,
@@ -85,7 +95,7 @@ export function App() {
       cwd: session.cwd,
       status: 'running',
     }]);
-  }, []);
+  }, [activeTerminals]);
 
   const handleBulkResume = useCallback(async () => {
     const toResume = sessions.filter(s => selectedSessions.has(s.id));
