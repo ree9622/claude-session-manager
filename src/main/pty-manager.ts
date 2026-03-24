@@ -23,22 +23,24 @@ export class PtyManager {
       ? 'C:\\Program Files\\Git\\bin\\bash.exe'
       : 'bash';
 
-    // Build the claude command
-    let args: string[] = [];
-    if (options.sessionId) {
-      args = ['--login', '-c', `claude --resume ${options.sessionId}`];
-    } else {
-      const nameArg = options.name ? ` --name "${options.name}"` : '';
-      args = ['--login', '-c', `claude${nameArg}`];
-    }
-
-    const ptyProcess = pty.spawn(shell, args, {
+    // Spawn interactive bash, then send claude command
+    const ptyProcess = pty.spawn(shell, ['--login', '-i'], {
       name: 'xterm-256color',
       cols: 120,
       rows: 30,
       cwd,
       env: { ...process.env } as Record<string, string>,
     });
+
+    // Send claude command after shell is ready
+    setTimeout(() => {
+      if (options.sessionId) {
+        ptyProcess.write(`claude --resume ${options.sessionId}\r`);
+      } else {
+        const nameArg = options.name ? ` --name "${options.name}"` : '';
+        ptyProcess.write(`claude${nameArg}\r`);
+      }
+    }, 500);
 
     const instance: PtyInstance = {
       id,

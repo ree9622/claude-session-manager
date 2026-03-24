@@ -105,6 +105,18 @@ export function App() {
     }
   }, []);
 
+  const handleDeleteSession = useCallback(async (session: SessionInfo) => {
+    const ok = await window.api.sessions.delete(session.id, session.projectDir);
+    if (ok) {
+      setSessions(prev => prev.filter(s => s.id !== session.id));
+      setSelectedSessions(prev => {
+        const next = new Set(prev);
+        next.delete(session.id);
+        return next;
+      });
+    }
+  }, []);
+
   const handleCleanup = useCallback(async (days: number) => {
     const deleted = await window.api.sessions.deleteOld(days);
     if (deleted > 0) {
@@ -144,6 +156,7 @@ export function App() {
           onSearch={handleSearch}
           onNewSession={() => setShowNewSession(true)}
           onGenerateName={handleGenerateName}
+          onDeleteSession={handleDeleteSession}
           onCleanup={handleCleanup}
           loading={loading}
         />

@@ -27,6 +27,7 @@ declare global {
         getDetails: (sessionId: string, projectDir: string) => Promise<any>;
         generateName: (sessionId: string, projectDir: string) => Promise<string>;
         deleteOld: (daysOld: number) => Promise<number>;
+        delete: (sessionId: string, projectDir: string) => Promise<boolean>;
       };
       pty: {
         create: (options: { sessionId?: string; cwd?: string; name?: string }) => Promise<string>;

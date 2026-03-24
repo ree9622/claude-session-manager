@@ -225,6 +225,25 @@ export class SessionParser {
     this.saveNames();
   }
 
+  async deleteSession(sessionId: string, projectDir: string): Promise<boolean> {
+    const filePath = path.join(PROJECTS_DIR, projectDir, `${sessionId}.jsonl`);
+    if (!fs.existsSync(filePath)) return false;
+
+    fs.unlinkSync(filePath);
+
+    // Also remove the session directory if it exists (subagents, tool-results)
+    const sessionDir = path.join(PROJECTS_DIR, projectDir, sessionId);
+    if (fs.existsSync(sessionDir) && fs.statSync(sessionDir).isDirectory()) {
+      fs.rmSync(sessionDir, { recursive: true });
+    }
+
+    // Remove from names cache
+    delete this.namesCache[sessionId];
+    this.saveNames();
+
+    return true;
+  }
+
   async deleteOldSessions(daysOld: number): Promise<number> {
     const cutoff = Date.now() - daysOld * 24 * 60 * 60 * 1000;
     let deleted = 0;

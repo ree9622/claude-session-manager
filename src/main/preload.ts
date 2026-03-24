@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('api', {
     generateName: (sessionId: string, projectDir: string) =>
       ipcRenderer.invoke('sessions:generate-name', sessionId, projectDir),
     deleteOld: (daysOld: number) => ipcRenderer.invoke('sessions:delete-old', daysOld),
+    delete: (sessionId: string, projectDir: string) =>
+      ipcRenderer.invoke('sessions:delete', sessionId, projectDir),
   },
 
   // PTY management

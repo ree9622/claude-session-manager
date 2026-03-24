@@ -12,6 +12,7 @@ interface SidebarProps {
   onSearch: (query: string) => void;
   onNewSession: () => void;
   onGenerateName: (session: SessionInfo) => void;
+  onDeleteSession: (session: SessionInfo) => void;
   onCleanup: (days: number) => Promise<number>;
   loading: boolean;
 }
@@ -46,6 +47,7 @@ function SessionItem({
   onToggleExpand,
   onResume,
   onGenerateName,
+  onDelete,
   showProject,
 }: {
   session: SessionInfo;
@@ -55,6 +57,7 @@ function SessionItem({
   onToggleExpand: () => void;
   onResume: () => void;
   onGenerateName: () => void;
+  onDelete: () => void;
   showProject: boolean;
 }) {
   return (
@@ -112,6 +115,15 @@ function SessionItem({
             >
               🏷️ 이름 생성
             </button>
+            <button
+              className="btn btn-sm btn-danger"
+              onClick={() => {
+                if (confirm('이 세션을 삭제할까요?')) onDelete();
+              }}
+              title="세션 삭제"
+            >
+              🗑️ 삭제
+            </button>
           </div>
         </div>
       )}
@@ -128,6 +140,7 @@ export function Sidebar({
   onSearch,
   onNewSession,
   onGenerateName,
+  onDeleteSession,
   onCleanup,
   loading,
 }: SidebarProps) {
@@ -266,6 +279,7 @@ export function Sidebar({
                         }
                         onResume={() => onResumeSession(session)}
                         onGenerateName={() => onGenerateName(session)}
+                        onDelete={() => onDeleteSession(session)}
                         showProject={sortMode === 'time'}
                       />
                     ))}

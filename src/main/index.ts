@@ -58,6 +58,10 @@ ipcMain.handle('sessions:generate-name', async (_e, sessionId: string, projectDi
   return sessionParser.generateSessionName(sessionId, projectDir);
 });
 
+ipcMain.handle('sessions:delete', async (_e, sessionId: string, projectDir: string) => {
+  return sessionParser.deleteSession(sessionId, projectDir);
+});
+
 ipcMain.handle('sessions:delete-old', async (_e, daysOld: number) => {
   return sessionParser.deleteOldSessions(daysOld);
 });
