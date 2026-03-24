@@ -7,6 +7,7 @@ interface TerminalGridProps {
   terminals: ActiveTerminal[];
   viewMode: ViewMode;
   focusedTerminal: string | null;
+  gridColumns: number;
   onFocusTerminal: (ptyId: string) => void;
   onKillTerminal: (ptyId: string) => void;
   onTerminalExit: (ptyId: string) => void;
@@ -24,6 +25,7 @@ export function TerminalGrid({
   onReorder,
   onViewModeChange,
   onNewSession,
+  gridColumns,
 }: TerminalGridProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
@@ -105,7 +107,10 @@ export function TerminalGrid({
       )}
 
       {/* Terminal cards — always rendered, layout changes by viewMode */}
-      <div className={`terminal-container ${viewMode === 'grid' ? 'layout-grid' : viewMode === 'thumbnail' ? 'layout-single' : 'layout-single'}`}>
+      <div
+        className={`terminal-container ${viewMode === 'grid' ? 'layout-grid' : 'layout-single'}`}
+        style={viewMode === 'grid' && gridColumns > 0 ? { gridTemplateColumns: `repeat(${gridColumns}, 1fr)` } : undefined}
+      >
         {terminals.map((terminal, index) => {
           // In thumbnail/focus mode, only the focused terminal is visible
           const isVisible = viewMode === 'grid' || terminal.ptyId === activeFocus;
@@ -116,7 +121,7 @@ export function TerminalGrid({
             <div
               key={terminal.ptyId}
               className={`terminal-card ${terminal.ptyId === activeFocus ? 'focused' : ''} ${isDragging ? 'dragging' : ''} ${isDropTarget ? 'drop-target' : ''}`}
-              style={!isVisible ? { position: 'absolute', left: '-9999px', width: '1px', height: '1px', overflow: 'hidden' } : undefined}
+              style={!isVisible ? { visibility: 'hidden' as const, height: 0, overflow: 'hidden', position: 'absolute' as const } : undefined}
               draggable={viewMode === 'grid'}
               onDragStart={viewMode === 'grid' ? () => handleDragStart(index) : undefined}
               onDragOver={viewMode === 'grid' ? (e) => handleDragOver(e, index) : undefined}

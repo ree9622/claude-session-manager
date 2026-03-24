@@ -7,12 +7,17 @@ interface ToolbarProps {
   onViewModeChange: (mode: ViewMode) => void;
   activeCount: number;
   sidebarCollapsed: boolean;
+  gridColumns: number;
+  onGridColumnsChange: (cols: number) => void;
   onToggleSidebar: () => void;
   onLangChange: () => void;
   onCloseAll: () => void;
 }
 
-export function Toolbar({ viewMode, onViewModeChange, activeCount, sidebarCollapsed, onToggleSidebar, onLangChange, onCloseAll }: ToolbarProps) {
+export function Toolbar({
+  viewMode, onViewModeChange, activeCount, sidebarCollapsed,
+  gridColumns, onGridColumnsChange, onToggleSidebar, onLangChange, onCloseAll,
+}: ToolbarProps) {
   const lang = getLang();
   return (
     <div className="toolbar">
@@ -31,6 +36,20 @@ export function Toolbar({ viewMode, onViewModeChange, activeCount, sidebarCollap
             </button>
           ))}
         </div>
+        {viewMode === 'grid' && (
+          <div className="view-switcher" style={{ marginLeft: 4 }}>
+            {[0, 1, 2, 3, 4].map(n => (
+              <button
+                key={n}
+                className={gridColumns === n ? 'active' : ''}
+                onClick={() => onGridColumnsChange(n)}
+                title={n === 0 ? t('grid.auto') : `${n} ${t('grid.columns')}`}
+              >
+                {n === 0 ? t('grid.auto') : `${n}`}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span className="active-count">

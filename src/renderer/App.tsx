@@ -15,6 +15,7 @@ export function App() {
   const [focusedTerminal, setFocusedTerminal] = useState<string | null>(null);
   const [showNewSession, setShowNewSession] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [gridColumns, setGridColumns] = useState(0); // 0 = auto
   const [lang, setLangState] = useState(getLang());
   const [loading, setLoading] = useState(true);
 
@@ -241,6 +242,8 @@ export function App() {
             onViewModeChange={setViewMode}
             activeCount={activeTerminals.length}
             sidebarCollapsed={sidebarCollapsed}
+            gridColumns={gridColumns}
+            onGridColumnsChange={setGridColumns}
             onToggleSidebar={() => setSidebarCollapsed(p => !p)}
             onLangChange={handleLangChange}
             onCloseAll={handleCloseAll}
@@ -249,6 +252,7 @@ export function App() {
             terminals={activeTerminals}
             viewMode={viewMode}
             focusedTerminal={focusedTerminal}
+            gridColumns={gridColumns}
             onFocusTerminal={handleFocusTerminal}
             onKillTerminal={handleKillTerminal}
             onTerminalExit={handleTerminalExit}
