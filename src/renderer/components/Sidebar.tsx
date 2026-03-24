@@ -53,11 +53,8 @@ function SessionItem({
 }) {
   return (
     <div className={`session-item ${isSelected ? 'selected' : ''} ${isExpanded ? 'expanded' : ''}`}>
-      <div className="session-item-row" onClick={onToggleExpand}>
-        <div
-          className={`checkbox ${isSelected ? 'checked' : ''}`}
-          onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
-        />
+      <div className="session-item-row" onClick={onToggleSelect}>
+        <div className={`checkbox ${isSelected ? 'checked' : ''}`} />
         <div className="session-item-summary">
           <div className="session-name">{session.name || session.id.slice(0, 8)}</div>
           <div className="session-prompt">{session.firstPrompt}</div>
@@ -72,6 +69,11 @@ function SessionItem({
           onClick={(e) => { e.stopPropagation(); onResume(); }}
           title={t('session.quickOpen')}
         >▶</button>
+        <button
+          className="btn-icon quick-open expand-btn"
+          onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
+          title={t('session.expand')}
+        >{isExpanded ? '▾' : '▸'}</button>
         <span className="session-time">{timeAgo(session.lastActivity)}</span>
       </div>
 

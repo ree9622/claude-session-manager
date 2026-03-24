@@ -25,6 +25,7 @@ const translations = {
   'session.deleteConfirm': { en: 'Delete this session?', ko: '이 세션을 삭제할까요?' },
   'session.messages': { en: '{n}+', ko: '{n}개+' },
   'session.noData': { en: '(no session data)', ko: '(세션 데이터 없음)' },
+  'session.expand': { en: 'Details', ko: '상세' },
 
   // Time
   'time.now': { en: 'Just now', ko: '방금 전' },

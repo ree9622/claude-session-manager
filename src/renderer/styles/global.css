@@ -424,6 +424,15 @@ body {
   opacity: 1;
 }
 
+.expand-btn {
+  opacity: 0.5 !important;
+  font-size: 9px !important;
+}
+
+.expand-btn:hover {
+  opacity: 1 !important;
+}
+
 .session-time {
   font-size: 10px;
   color: var(--text-muted);
