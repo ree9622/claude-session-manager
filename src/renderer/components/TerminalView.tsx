@@ -109,9 +109,10 @@ export function TerminalView({ ptyId, isVisible, isFocused, onFocus }: TerminalV
     };
   }, [ptyId]);
 
-  // Focus terminal when focused prop changes
+  // Focus terminal + scroll to bottom when focused
   useEffect(() => {
     if (isFocused && terminalRef.current) {
+      terminalRef.current.scrollToBottom();
       terminalRef.current.focus();
     }
   }, [isFocused]);
