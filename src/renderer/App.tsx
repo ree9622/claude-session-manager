@@ -3,6 +3,7 @@ import { Sidebar } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
 import { TerminalGrid } from './components/TerminalGrid';
 import { NewSessionModal } from './components/NewSessionModal';
+import { UpdateBanner } from './components/UpdateBanner';
 import { SessionInfo, ActiveTerminal, ViewMode } from './types';
 import { t, getLang, setLang } from './i18n';
 
@@ -21,7 +22,18 @@ export function App() {
     const next = lang === 'ko' ? 'en' : 'ko';
     setLang(next);
     setLangState(next);
+    window.api.settings?.set('lang', next);
   }, [lang]);
+
+  // First run notice
+  useEffect(() => {
+    window.api.onFirstRun?.(() => {
+      const msg = lang === 'ko'
+        ? '클로드 세션 매니저에 오신 걸 환영합니다!\n\n닫기(X) 버튼을 누르면 앱이 종료되지 않고 시스템 트레이로 최소화됩니다.\n트레이 아이콘을 클릭하면 다시 열 수 있고, 우클릭 → 종료로 완전히 끌 수 있습니다.\n\n이 동작은 트레이 우클릭 메뉴에서 변경할 수 있습니다.'
+        : 'Welcome to Claude Session Manager!\n\nClosing the window minimizes to system tray instead of quitting.\nClick the tray icon to show/hide. Right-click → Quit to exit.\n\nYou can change this behavior from the tray context menu.';
+      alert(msg);
+    });
+  }, []);
 
   useEffect(() => {
     loadSessions();
@@ -206,6 +218,7 @@ export function App() {
       <div className="titlebar">
         <h1>{t('app.title')}</h1>
       </div>
+      <UpdateBanner />
       <div className="app-layout">
         <Sidebar
           sessions={sessions}

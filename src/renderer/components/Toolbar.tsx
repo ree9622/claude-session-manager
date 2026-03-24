@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { ViewMode } from '../types';
 import { t, getLang } from '../i18n';
 
@@ -14,16 +14,6 @@ interface ToolbarProps {
 
 export function Toolbar({ viewMode, onViewModeChange, activeCount, sidebarCollapsed, onToggleSidebar, onLangChange, onCloseAll }: ToolbarProps) {
   const lang = getLang();
-  const [updateStatus, setUpdateStatus] = useState<{ type: string; version?: string; percent?: number } | null>(null);
-
-  useEffect(() => {
-    if (!window.api.updater) return;
-    const cleanup = window.api.updater.onStatus((status) => {
-      setUpdateStatus(status);
-    });
-    return cleanup;
-  }, []);
-
   return (
     <div className="toolbar">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -43,22 +33,6 @@ export function Toolbar({ viewMode, onViewModeChange, activeCount, sidebarCollap
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {/* Update notification */}
-        {updateStatus?.type === 'ready' && (
-          <button
-            className="btn btn-sm"
-            style={{ background: 'var(--success)', color: '#000', borderColor: 'var(--success)' }}
-            onClick={() => window.api.updater.install()}
-          >
-            v{updateStatus.version} {t('updater.restart')}
-          </button>
-        )}
-        {updateStatus?.type === 'progress' && (
-          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-            {t('updater.downloading')} {updateStatus.percent}%
-          </span>
-        )}
-
         <span className="active-count">
           {activeCount > 0 ? t('toolbar.active', { n: activeCount }) : t('toolbar.noTerminals')}
         </span>

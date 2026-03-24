@@ -62,4 +62,15 @@ contextBridge.exposeInMainWorld('api', {
       return () => ipcRenderer.removeListener('updater:status', listener);
     },
   },
+
+  // Settings
+  settings: {
+    get: (key: string) => ipcRenderer.invoke('settings:get', key),
+    set: (key: string, value: any) => ipcRenderer.invoke('settings:set', key, value),
+  },
+
+  // First run
+  onFirstRun: (callback: () => void) => {
+    ipcRenderer.on('first-run', () => callback());
+  },
 });

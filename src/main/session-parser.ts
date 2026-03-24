@@ -239,7 +239,7 @@ export class SessionParser {
 
   private callClaude(prompt: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      const proc = spawn('claude', ['-p', '--model', 'haiku'], {
+      const proc = spawn('claude', ['-p', '--model', 'haiku', '--no-session-persistence'], {
         timeout: 30000,
         env: { ...process.env },
         stdio: ['pipe', 'pipe', 'pipe'],

@@ -69,8 +69,10 @@ const translations = {
   'tray.quit': { en: 'Quit', ko: '종료' },
 
   // Updater
-  'updater.restart': { en: '— Restart to update', ko: '— 재시작하여 업데이트' },
+  'updater.available': { en: 'Update v{version} available — downloading...', ko: 'v{version} 업데이트 발견 — 다운로드 중...' },
   'updater.downloading': { en: 'Downloading update...', ko: '업데이트 다운로드 중...' },
+  'updater.ready': { en: 'Update v{version} ready.', ko: 'v{version} 업데이트 준비 완료.' },
+  'updater.restartBtn': { en: 'Restart Now', ko: '지금 재시작' },
 
   // Detail
   'detail.path': { en: 'Path', ko: '경로' },

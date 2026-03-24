@@ -5,6 +5,7 @@ import { PtyManager } from './pty-manager';
 import { SessionParser } from './session-parser';
 import { stateStore, SavedTerminal } from './state-store';
 import { logger } from './logger';
+import { settings } from './settings';
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -13,18 +14,26 @@ const ptyManager = new PtyManager();
 const sessionParser = new SessionParser();
 
 function getTrayIconPath() {
-  const iconName = process.platform === 'win32' ? 'tray-icon.png' : 'tray-icon.png';
-  // In dev, use build/; in production, use resources/
-  const devPath = path.join(__dirname, '../../build', iconName);
-  const prodPath = path.join(process.resourcesPath, iconName);
   const fs = require('fs');
+  const devPath = path.join(__dirname, '../../build/tray-icon.png');
+  const prodPath = path.join(process.resourcesPath, 'tray-icon.png');
   return fs.existsSync(devPath) ? devPath : prodPath;
+}
+
+function getTrayLabel(key: string): string {
+  const lang = settings.get('lang');
+  const labels: Record<string, Record<string, string>> = {
+    showHide: { en: 'Show / Hide', ko: '보이기 / 숨기기' },
+    startOnLogin: { en: 'Start on login', ko: '로그인 시 시작' },
+    closeToTray: { en: 'Minimize to tray on close', ko: '닫을 때 트레이로 최소화' },
+    quit: { en: 'Quit', ko: '종료' },
+  };
+  return labels[key]?.[lang] || labels[key]?.['en'] || key;
 }
 
 function createTray() {
   const iconPath = getTrayIconPath();
   const fs = require('fs');
-
   if (!fs.existsSync(iconPath)) {
     logger.warn('tray', `Tray icon not found: ${iconPath}`);
     return;
@@ -32,39 +41,7 @@ function createTray() {
 
   tray = new Tray(iconPath);
   tray.setToolTip('Claude Session Manager');
-
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: 'Show / Hide',
-      click: () => {
-        if (mainWindow?.isVisible()) {
-          mainWindow.hide();
-        } else {
-          mainWindow?.show();
-          mainWindow?.focus();
-        }
-      },
-    },
-    {
-      label: 'Start on Login',
-      type: 'checkbox',
-      checked: app.getLoginItemSettings().openAtLogin,
-      click: (menuItem) => {
-        app.setLoginItemSettings({ openAtLogin: menuItem.checked });
-        logger.info('tray', `Start on login: ${menuItem.checked}`);
-      },
-    },
-    { type: 'separator' },
-    {
-      label: 'Quit',
-      click: () => {
-        isQuitting = true;
-        app.quit();
-      },
-    },
-  ]);
-
-  tray.setContextMenu(contextMenu);
+  updateTrayMenu();
 
   tray.on('click', () => {
     if (mainWindow?.isVisible()) {
@@ -74,6 +51,42 @@ function createTray() {
       mainWindow?.focus();
     }
   });
+}
+
+function updateTrayMenu() {
+  if (!tray) return;
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: getTrayLabel('showHide'),
+      click: () => {
+        if (mainWindow?.isVisible()) mainWindow.hide();
+        else { mainWindow?.show(); mainWindow?.focus(); }
+      },
+    },
+    {
+      label: getTrayLabel('closeToTray'),
+      type: 'checkbox',
+      checked: settings.get('closeToTray'),
+      click: (menuItem) => {
+        settings.set('closeToTray', menuItem.checked);
+      },
+    },
+    {
+      label: getTrayLabel('startOnLogin'),
+      type: 'checkbox',
+      checked: app.getLoginItemSettings().openAtLogin,
+      click: (menuItem) => {
+        app.setLoginItemSettings({ openAtLogin: menuItem.checked });
+        settings.set('startOnLogin', menuItem.checked);
+      },
+    },
+    { type: 'separator' },
+    {
+      label: getTrayLabel('quit'),
+      click: () => { isQuitting = true; app.quit(); },
+    },
+  ]);
+  tray.setContextMenu(contextMenu);
 }
 
 function createWindow() {
@@ -111,57 +124,42 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../index.html'));
   }
 
-  // Minimize to tray instead of closing
+  // Close behavior based on settings
   mainWindow.on('close', (e) => {
-    if (!isQuitting) {
+    if (!isQuitting && settings.get('closeToTray')) {
       e.preventDefault();
       mainWindow?.hide();
     }
   });
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
+  mainWindow.on('closed', () => { mainWindow = null; });
+
+  // First run: show close behavior notice
+  if (settings.get('firstRun')) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      mainWindow?.webContents.send('first-run');
+    });
+    settings.set('firstRun', false);
+  }
 }
 
 // --- IPC Handlers ---
 
 // Session management
-ipcMain.handle('sessions:list', async () => {
-  return sessionParser.listSessions();
-});
-
-ipcMain.handle('sessions:search', async (_e, query: string) => {
-  return sessionParser.searchSessions(query);
-});
-
-ipcMain.handle('sessions:get-details', async (_e, sessionId: string, projectDir: string) => {
-  return sessionParser.getSessionDetails(sessionId, projectDir);
-});
-
-ipcMain.handle('sessions:generate-name', async (_e, sessionId: string, projectDir: string) => {
-  return sessionParser.generateSessionName(sessionId, projectDir);
-});
-
-ipcMain.handle('sessions:delete', async (_e, sessionId: string, projectDir: string) => {
-  return sessionParser.deleteSession(sessionId, projectDir);
-});
-
-ipcMain.handle('sessions:delete-old', async (_e, daysOld: number) => {
-  return sessionParser.deleteOldSessions(daysOld);
-});
+ipcMain.handle('sessions:list', async () => sessionParser.listSessions());
+ipcMain.handle('sessions:search', async (_e, q: string) => sessionParser.searchSessions(q));
+ipcMain.handle('sessions:get-details', async (_e, id: string, dir: string) => sessionParser.getSessionDetails(id, dir));
+ipcMain.handle('sessions:generate-name', async (_e, id: string, dir: string) => sessionParser.generateSessionName(id, dir));
+ipcMain.handle('sessions:delete', async (_e, id: string, dir: string) => sessionParser.deleteSession(id, dir));
+ipcMain.handle('sessions:delete-old', async (_e, days: number) => sessionParser.deleteOldSessions(days));
 
 // PTY management
 ipcMain.handle('pty:create', async (_e, options: { sessionId?: string; cwd?: string; name?: string }) => {
   logger.info('ipc', 'pty:create called', options);
   try {
     const id = ptyManager.create(options);
-    ptyManager.onData(id, (data) => {
-      mainWindow?.webContents.send(`pty:data:${id}`, data);
-    });
-    ptyManager.onExit(id, (exitCode) => {
-      mainWindow?.webContents.send(`pty:exit:${id}`, exitCode);
-    });
+    ptyManager.onData(id, (data) => mainWindow?.webContents.send(`pty:data:${id}`, data));
+    ptyManager.onExit(id, (exitCode) => mainWindow?.webContents.send(`pty:exit:${id}`, exitCode));
     return id;
   } catch (err) {
     logger.error('ipc', 'pty:create failed', { error: String(err), options });
@@ -169,50 +167,29 @@ ipcMain.handle('pty:create', async (_e, options: { sessionId?: string; cwd?: str
   }
 });
 
-ipcMain.handle('pty:write', async (_e, id: string, data: string) => {
-  ptyManager.write(id, data);
-});
-
-ipcMain.handle('pty:resize', async (_e, id: string, cols: number, rows: number) => {
-  ptyManager.resize(id, cols, rows);
-});
-
-ipcMain.handle('pty:kill', async (_e, id: string) => {
-  ptyManager.kill(id);
-});
-
-ipcMain.handle('pty:kill-all', async () => {
-  ptyManager.killAll();
-});
-
-ipcMain.handle('pty:list', async () => {
-  return ptyManager.list();
-});
+ipcMain.handle('pty:write', async (_e, id: string, data: string) => ptyManager.write(id, data));
+ipcMain.handle('pty:resize', async (_e, id: string, cols: number, rows: number) => ptyManager.resize(id, cols, rows));
+ipcMain.handle('pty:kill', async (_e, id: string) => ptyManager.kill(id));
+ipcMain.handle('pty:kill-all', async () => ptyManager.killAll());
+ipcMain.handle('pty:list', async () => ptyManager.list());
 
 // State persistence
-ipcMain.handle('state:save', async (_e, terminals: SavedTerminal[]) => {
-  stateStore.save(terminals);
-});
+ipcMain.handle('state:save', async (_e, terminals: SavedTerminal[]) => stateStore.save(terminals));
+ipcMain.handle('state:load', async () => stateStore.load());
 
-ipcMain.handle('state:load', async () => {
-  return stateStore.load();
+// Settings
+ipcMain.handle('settings:get', async (_e, key: string) => settings.get(key as any));
+ipcMain.handle('settings:set', async (_e, key: string, value: any) => {
+  settings.set(key as any, value);
+  if (key === 'lang') updateTrayMenu();
 });
 
 // Logging
-ipcMain.handle('log:get-recent', async (_e, lines: number) => {
-  return logger.getRecentLogs(lines);
-});
+ipcMain.handle('log:get-recent', async (_e, lines: number) => logger.getRecentLogs(lines));
+ipcMain.handle('log:get-path', async () => logger.getLogPath());
 
-ipcMain.handle('log:get-path', async () => {
-  return logger.getLogPath();
-});
-
-// Shell
-ipcMain.handle('shell:open-external', async (_e, url: string) => {
-  shell.openExternal(url);
-});
-
-// Dialog
+// Shell & Dialog
+ipcMain.handle('shell:open-external', async (_e, url: string) => shell.openExternal(url));
 ipcMain.handle('dialog:open-directory', async () => {
   if (!mainWindow) return null;
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -222,47 +199,31 @@ ipcMain.handle('dialog:open-directory', async () => {
   return result.canceled ? null : result.filePaths[0];
 });
 
-// Auto-updater — download silently, install on quit (like VS Code)
+// Auto-updater
 function setupAutoUpdater() {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
-  autoUpdater.on('checking-for-update', () => {
-    logger.info('updater', 'Checking for updates...');
-  });
-
+  autoUpdater.on('checking-for-update', () => logger.info('updater', 'Checking...'));
   autoUpdater.on('update-available', (info) => {
-    logger.info('updater', `Update available: v${info.version}`);
+    logger.info('updater', `Available: v${info.version}`);
     mainWindow?.webContents.send('updater:status', { type: 'available', version: info.version });
   });
-
-  autoUpdater.on('update-not-available', () => {
-    logger.info('updater', 'No updates available');
+  autoUpdater.on('update-not-available', () => logger.info('updater', 'Up to date'));
+  autoUpdater.on('download-progress', (p) => {
+    mainWindow?.webContents.send('updater:status', { type: 'progress', percent: Math.round(p.percent) });
   });
-
-  autoUpdater.on('download-progress', (progress) => {
-    mainWindow?.webContents.send('updater:status', { type: 'progress', percent: Math.round(progress.percent) });
-  });
-
   autoUpdater.on('update-downloaded', (info) => {
-    logger.info('updater', `Update downloaded: v${info.version}`);
+    logger.info('updater', `Downloaded: v${info.version}`);
     mainWindow?.webContents.send('updater:status', { type: 'ready', version: info.version });
   });
+  autoUpdater.on('error', (err) => logger.error('updater', 'Error', String(err)));
 
-  autoUpdater.on('error', (err) => {
-    logger.error('updater', 'Update error', String(err));
-  });
-
-  // Check every 30 minutes
   autoUpdater.checkForUpdates().catch(() => {});
-  setInterval(() => {
-    autoUpdater.checkForUpdates().catch(() => {});
-  }, 30 * 60 * 1000);
+  setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 30 * 60 * 1000);
 }
 
-ipcMain.handle('updater:install', async () => {
-  autoUpdater.quitAndInstall();
-});
+ipcMain.handle('updater:install', async () => autoUpdater.quitAndInstall());
 
 // App lifecycle
 app.whenReady().then(() => {
@@ -273,19 +234,13 @@ app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   isQuitting = true;
-  logger.info('app', 'before-quit, killing PTYs');
+  logger.info('app', 'before-quit');
   ptyManager.killAll();
 });
 
-app.on('window-all-closed', () => {
-  // On Windows, don't quit when window closes (tray keeps it alive)
-  // Only quit when isQuitting is true (from tray → Quit)
-});
+app.on('window-all-closed', () => {});
 
 app.on('activate', () => {
-  if (mainWindow === null) {
-    createWindow();
-  } else {
-    mainWindow.show();
-  }
+  if (mainWindow === null) createWindow();
+  else mainWindow.show();
 });
