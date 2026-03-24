@@ -52,4 +52,14 @@ contextBridge.exposeInMainWorld('api', {
   // Shell & Dialog
   openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
   openDirectoryDialog: () => ipcRenderer.invoke('dialog:open-directory') as Promise<string | null>,
+
+  // Updater
+  updater: {
+    install: () => ipcRenderer.invoke('updater:install'),
+    onStatus: (callback: (status: any) => void) => {
+      const listener = (_event: any, status: any) => callback(status);
+      ipcRenderer.on('updater:status', listener);
+      return () => ipcRenderer.removeListener('updater:status', listener);
+    },
+  },
 });

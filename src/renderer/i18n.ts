@@ -68,6 +68,10 @@ const translations = {
   'tray.startOnLogin': { en: 'Start on login', ko: '로그인 시 시작' },
   'tray.quit': { en: 'Quit', ko: '종료' },
 
+  // Updater
+  'updater.restart': { en: '— Restart to update', ko: '— 재시작하여 업데이트' },
+  'updater.downloading': { en: 'Downloading update...', ko: '업데이트 다운로드 중...' },
+
   // Detail
   'detail.path': { en: 'Path', ko: '경로' },
   'detail.messages': { en: 'Messages', ko: '메시지' },

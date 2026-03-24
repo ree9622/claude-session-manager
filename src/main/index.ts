@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage, dialog } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import { PtyManager } from './pty-manager';
 import { SessionParser } from './session-parser';
@@ -221,10 +222,53 @@ ipcMain.handle('dialog:open-directory', async () => {
   return result.canceled ? null : result.filePaths[0];
 });
 
+// Auto-updater — download silently, install on quit (like VS Code)
+function setupAutoUpdater() {
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => {
+    logger.info('updater', 'Checking for updates...');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    logger.info('updater', `Update available: v${info.version}`);
+    mainWindow?.webContents.send('updater:status', { type: 'available', version: info.version });
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    logger.info('updater', 'No updates available');
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    mainWindow?.webContents.send('updater:status', { type: 'progress', percent: Math.round(progress.percent) });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    logger.info('updater', `Update downloaded: v${info.version}`);
+    mainWindow?.webContents.send('updater:status', { type: 'ready', version: info.version });
+  });
+
+  autoUpdater.on('error', (err) => {
+    logger.error('updater', 'Update error', String(err));
+  });
+
+  // Check every 30 minutes
+  autoUpdater.checkForUpdates().catch(() => {});
+  setInterval(() => {
+    autoUpdater.checkForUpdates().catch(() => {});
+  }, 30 * 60 * 1000);
+}
+
+ipcMain.handle('updater:install', async () => {
+  autoUpdater.quitAndInstall();
+});
+
 // App lifecycle
 app.whenReady().then(() => {
   createWindow();
   createTray();
+  setupAutoUpdater();
 });
 
 app.on('before-quit', () => {

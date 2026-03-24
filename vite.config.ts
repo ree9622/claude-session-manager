@@ -17,7 +17,7 @@ export default defineConfig({
           build: {
             outDir: 'dist/main',
             rollupOptions: {
-              external: ['node-pty'],
+              external: ['node-pty', 'electron-updater'],
             },
           },
         },

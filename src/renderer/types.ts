@@ -50,6 +50,10 @@ declare global {
       };
       openExternal: (url: string) => void;
       openDirectoryDialog: () => Promise<string | null>;
+      updater: {
+        install: () => Promise<void>;
+        onStatus: (callback: (status: any) => void) => () => void;
+      };
     };
   }
 }
