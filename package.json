@@ -50,6 +50,11 @@
     "appId": "com.samlab.claude-session-manager",
     "productName": "Claude Session Manager",
     "copyright": "Copyright © 2026 samlab.co.kr",
+    "files": [
+      "dist/**/*",
+      "!dist/win-unpacked",
+      "!dist/builder-*"
+    ],
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico"
