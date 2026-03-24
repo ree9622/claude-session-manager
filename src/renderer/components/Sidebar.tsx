@@ -197,11 +197,7 @@ export function Sidebar({
   // 5) Collapsed sidebar — thin strip with toggle button
   if (collapsed) {
     return (
-      <div className="sidebar sidebar-collapsed">
-        <button className="btn-icon sidebar-toggle" onClick={onToggleCollapse} title="사이드바 펼치기">
-          ☰
-        </button>
-      </div>
+      <div className="sidebar sidebar-collapsed" />
     );
   }
 

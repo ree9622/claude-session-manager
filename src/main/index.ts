@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage } from 'electron';
 import path from 'path';
 import { PtyManager } from './pty-manager';
 import { SessionParser } from './session-parser';
@@ -6,8 +6,74 @@ import { stateStore, SavedTerminal } from './state-store';
 import { logger } from './logger';
 
 let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let isQuitting = false;
 const ptyManager = new PtyManager();
 const sessionParser = new SessionParser();
+
+function getTrayIconPath() {
+  const iconName = process.platform === 'win32' ? 'tray-icon.png' : 'tray-icon.png';
+  // In dev, use build/; in production, use resources/
+  const devPath = path.join(__dirname, '../../build', iconName);
+  const prodPath = path.join(process.resourcesPath, iconName);
+  const fs = require('fs');
+  return fs.existsSync(devPath) ? devPath : prodPath;
+}
+
+function createTray() {
+  const iconPath = getTrayIconPath();
+  const fs = require('fs');
+
+  if (!fs.existsSync(iconPath)) {
+    logger.warn('tray', `Tray icon not found: ${iconPath}`);
+    return;
+  }
+
+  tray = new Tray(iconPath);
+  tray.setToolTip('Claude Session Manager');
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Show / Hide',
+      click: () => {
+        if (mainWindow?.isVisible()) {
+          mainWindow.hide();
+        } else {
+          mainWindow?.show();
+          mainWindow?.focus();
+        }
+      },
+    },
+    {
+      label: 'Start on Login',
+      type: 'checkbox',
+      checked: app.getLoginItemSettings().openAtLogin,
+      click: (menuItem) => {
+        app.setLoginItemSettings({ openAtLogin: menuItem.checked });
+        logger.info('tray', `Start on login: ${menuItem.checked}`);
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setContextMenu(contextMenu);
+
+  tray.on('click', () => {
+    if (mainWindow?.isVisible()) {
+      mainWindow.hide();
+    } else {
+      mainWindow?.show();
+      mainWindow?.focus();
+    }
+  });
+}
 
 function createWindow() {
   logger.info('app', 'Creating main window');
@@ -37,6 +103,14 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, '../index.html'));
   }
+
+  // Minimize to tray instead of closing
+  mainWindow.on('close', (e) => {
+    if (!isQuitting) {
+      e.preventDefault();
+      mainWindow?.hide();
+    }
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -132,16 +206,26 @@ ipcMain.handle('shell:open-external', async (_e, url: string) => {
 });
 
 // App lifecycle
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  createTray();
+});
 
-// Renderer saves state via beforeunload → state:save IPC.
-// Main process only kills PTYs and quits — does NOT overwrite saved state.
-app.on('window-all-closed', () => {
-  logger.info('app', 'window-all-closed, killing PTYs');
+app.on('before-quit', () => {
+  isQuitting = true;
+  logger.info('app', 'before-quit, killing PTYs');
   ptyManager.killAll();
-  app.quit();
+});
+
+app.on('window-all-closed', () => {
+  // On Windows, don't quit when window closes (tray keeps it alive)
+  // Only quit when isQuitting is true (from tray → Quit)
 });
 
 app.on('activate', () => {
-  if (mainWindow === null) createWindow();
+  if (mainWindow === null) {
+    createWindow();
+  } else {
+    mainWindow.show();
+  }
 });

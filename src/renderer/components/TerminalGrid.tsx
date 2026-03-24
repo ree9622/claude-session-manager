@@ -12,6 +12,70 @@ interface TerminalGridProps {
   onReorder: (fromIndex: number, toIndex: number) => void;
 }
 
+function TerminalCard({
+  terminal,
+  isFocused,
+  isDragging,
+  isDropTarget,
+  showDragHandle,
+  showExpandBtn,
+  onFocus,
+  onKill,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+}: {
+  terminal: ActiveTerminal;
+  isFocused: boolean;
+  isDragging: boolean;
+  isDropTarget: boolean;
+  showDragHandle: boolean;
+  showExpandBtn: boolean;
+  onFocus: () => void;
+  onKill: () => void;
+  onDragStart?: () => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: () => void;
+  onDragEnd?: () => void;
+}) {
+  return (
+    <div
+      className={`terminal-card ${isFocused ? 'focused' : ''} ${isDragging ? 'dragging' : ''} ${isDropTarget ? 'drop-target' : ''}`}
+      draggable={!!onDragStart}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+    >
+      <div className="terminal-card-header">
+        <div className="terminal-card-title">
+          {showDragHandle && <span className="drag-handle">⠿</span>}
+          <span className={`status-dot ${terminal.status === 'exited' ? 'exited' : ''}`} />
+          <span>{terminal.name}</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>
+            {terminal.cwd.split('\\').slice(-2).join('/')}
+          </span>
+        </div>
+        <div className="terminal-card-actions">
+          {showExpandBtn && (
+            <button className="btn btn-sm" onClick={onFocus} title="Focus">⛶</button>
+          )}
+          <button className="btn btn-sm btn-danger" onClick={onKill} title="Close">✕</button>
+        </div>
+      </div>
+      <div className="terminal-card-body">
+        <TerminalView
+          ptyId={terminal.ptyId}
+          isVisible={true}
+          isFocused={isFocused}
+          onFocus={onFocus}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function TerminalGrid({
   terminals,
   viewMode,
@@ -29,29 +93,23 @@ export function TerminalGrid({
       <div className="terminal-area">
         <div className="empty-state">
           <div className="icon">⬛</div>
-          <p>활성 터미널이 없습니다</p>
+          <p>No active terminals</p>
           <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            사이드바에서 ▶ 버튼을 누르거나 "새 세션"을 눌러 시작하세요
+            Click ▶ on a session or press "+ New Session" to start
           </p>
         </div>
       </div>
     );
   }
 
-  const visibleTerminals = viewMode === 'focus'
-    ? terminals.filter(t => t.ptyId === (focusedTerminal || terminals[0]?.ptyId))
-    : terminals;
-
   const handleDragStart = (index: number) => {
     dragRef.current = index;
     setDragIndex(index);
   };
-
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     setDropIndex(index);
   };
-
   const handleDrop = (index: number) => {
     if (dragRef.current !== null && dragRef.current !== index) {
       onReorder(dragRef.current, index);
@@ -60,85 +118,133 @@ export function TerminalGrid({
     setDragIndex(null);
     setDropIndex(null);
   };
-
   const handleDragEnd = () => {
     dragRef.current = null;
     setDragIndex(null);
     setDropIndex(null);
   };
 
-  return (
-    <div className="terminal-area">
-      {viewMode === 'focus' && terminals.length > 1 && (
-        <div style={{
-          display: 'flex',
-          gap: 4,
-          marginBottom: 8,
-          overflowX: 'auto',
-          paddingBottom: 4,
-        }}>
-          {terminals.map(t => (
-            <button
-              key={t.ptyId}
-              className={`btn btn-sm ${t.ptyId === (focusedTerminal || terminals[0]?.ptyId) ? 'btn-primary' : ''}`}
-              onClick={() => onFocusTerminal(t.ptyId)}
-            >
-              <span style={{
-                display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
-                background: t.status === 'running' ? 'var(--success)' : 'var(--text-muted)',
-                marginRight: 4,
-              }} />
-              {t.name}
-            </button>
-          ))}
-        </div>
-      )}
+  const activeFocus = focusedTerminal || terminals[0]?.ptyId;
 
-      <div className={`terminal-grid view-${viewMode}`}>
-        {visibleTerminals.map((terminal, index) => {
-          const globalIndex = terminals.indexOf(terminal);
-          const isDragging = dragIndex === globalIndex;
-          const isDropTarget = dropIndex === globalIndex && dragIndex !== globalIndex;
+  // Thumbnail view: top thumbnails strip + large focused terminal below
+  if (viewMode === 'thumbnail') {
+    const focusedTerm = terminals.find(t => t.ptyId === activeFocus) || terminals[0];
 
-          return (
+    return (
+      <div className="terminal-area thumbnail-layout">
+        <div className="thumbnail-strip">
+          {terminals.map((t, i) => (
             <div
-              key={terminal.ptyId}
-              className={`terminal-card ${terminal.ptyId === focusedTerminal ? 'focused' : ''} ${isDragging ? 'dragging' : ''} ${isDropTarget ? 'drop-target' : ''}`}
-              draggable={viewMode !== 'focus'}
-              onDragStart={() => handleDragStart(globalIndex)}
-              onDragOver={(e) => handleDragOver(e, globalIndex)}
-              onDrop={() => handleDrop(globalIndex)}
+              key={t.ptyId}
+              className={`thumbnail-item ${t.ptyId === activeFocus ? 'active' : ''}`}
+              onClick={() => onFocusTerminal(t.ptyId)}
+              draggable
+              onDragStart={() => handleDragStart(i)}
+              onDragOver={(e) => handleDragOver(e, i)}
+              onDrop={() => handleDrop(i)}
               onDragEnd={handleDragEnd}
             >
-              <div className="terminal-card-header">
-                <div className="terminal-card-title">
-                  {viewMode !== 'focus' && <span className="drag-handle">⠿</span>}
-                  <span className={`status-dot ${terminal.status === 'exited' ? 'exited' : ''}`} />
-                  <span>{terminal.name}</span>
-                  {viewMode !== 'focus' && (
-                    <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>
-                      {terminal.cwd.split('\\').slice(-2).join('/')}
-                    </span>
-                  )}
-                </div>
-                <div className="terminal-card-actions">
-                  {viewMode !== 'focus' && (
-                    <button className="btn btn-sm" onClick={() => onFocusTerminal(terminal.ptyId)} title="포커스">⛶</button>
-                  )}
-                  <button className="btn btn-sm btn-danger" onClick={() => onKillTerminal(terminal.ptyId)} title="종료">✕</button>
-                </div>
-              </div>
-              <div className="terminal-card-body">
+              <div className="thumbnail-preview">
                 <TerminalView
-                  ptyId={terminal.ptyId}
+                  ptyId={t.ptyId}
                   isVisible={true}
-                  isFocused={terminal.ptyId === focusedTerminal}
-                  onFocus={() => onFocusTerminal(terminal.ptyId)}
+                  isFocused={false}
+                  onFocus={() => onFocusTerminal(t.ptyId)}
                 />
               </div>
+              <div className="thumbnail-label">
+                <span className={`status-dot ${t.status === 'exited' ? 'exited' : ''}`} />
+                <span>{t.name}</span>
+                <button
+                  className="thumbnail-close"
+                  onClick={(e) => { e.stopPropagation(); onKillTerminal(t.ptyId); }}
+                >✕</button>
+              </div>
             </div>
-          );
-        })}
+          ))}
+        </div>
+
+        {focusedTerm && (
+          <div className="thumbnail-main">
+            <TerminalCard
+              terminal={focusedTerm}
+              isFocused={true}
+              isDragging={false}
+              isDropTarget={false}
+              showDragHandle={false}
+              showExpandBtn={false}
+              onFocus={() => {}}
+              onKill={() => onKillTerminal(focusedTerm.ptyId)}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Focus view: tabs + single terminal
+  if (viewMode === 'focus') {
+    const focusedTerm = terminals.find(t => t.ptyId === activeFocus) || terminals[0];
+
+    return (
+      <div className="terminal-area">
+        {terminals.length > 1 && (
+          <div className="focus-tabs">
+            {terminals.map(t => (
+              <button
+                key={t.ptyId}
+                className={`btn btn-sm ${t.ptyId === activeFocus ? 'btn-primary' : ''}`}
+                onClick={() => onFocusTerminal(t.ptyId)}
+              >
+                <span style={{
+                  display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
+                  background: t.status === 'running' ? 'var(--success)' : 'var(--text-muted)',
+                  marginRight: 4,
+                }} />
+                {t.name}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="terminal-grid view-focus">
+          {focusedTerm && (
+            <TerminalCard
+              terminal={focusedTerm}
+              isFocused={true}
+              isDragging={false}
+              isDropTarget={false}
+              showDragHandle={false}
+              showExpandBtn={false}
+              onFocus={() => {}}
+              onKill={() => onKillTerminal(focusedTerm.ptyId)}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Grid view: equal-sized grid with DnD
+  return (
+    <div className="terminal-area">
+      <div className="terminal-grid view-grid">
+        {terminals.map((terminal, index) => (
+          <TerminalCard
+            key={terminal.ptyId}
+            terminal={terminal}
+            isFocused={terminal.ptyId === focusedTerminal}
+            isDragging={dragIndex === index}
+            isDropTarget={dropIndex === index && dragIndex !== index}
+            showDragHandle={true}
+            showExpandBtn={true}
+            onFocus={() => onFocusTerminal(terminal.ptyId)}
+            onKill={() => onKillTerminal(terminal.ptyId)}
+            onDragStart={() => handleDragStart(index)}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDrop={() => handleDrop(index)}
+            onDragEnd={handleDragEnd}
+          />
+        ))}
       </div>
     </div>
   );

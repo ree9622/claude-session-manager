@@ -85,10 +85,10 @@ body {
 }
 
 .sidebar-collapsed {
-  width: 44px;
-  min-width: 44px;
-  align-items: center;
-  padding-top: 8px;
+  width: 0px;
+  min-width: 0px;
+  border: none;
+  overflow: hidden;
 }
 
 .btn-icon {
@@ -495,9 +495,103 @@ body {
   grid-auto-rows: minmax(250px, 1fr);
 }
 
-.terminal-grid.view-thumbnail {
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  grid-auto-rows: 180px;
+/* Thumbnail layout: strip on top + large view below */
+.thumbnail-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.thumbnail-strip {
+  display: flex;
+  gap: 8px;
+  padding: 0 0 8px;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.thumbnail-item {
+  flex-shrink: 0;
+  width: 200px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s;
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.thumbnail-item:hover {
+  border-color: var(--border-light);
+}
+
+.thumbnail-item.active {
+  border-color: var(--accent);
+}
+
+.thumbnail-preview {
+  height: 100px;
+  overflow: hidden;
+  pointer-events: none;
+  transform: scale(0.45);
+  transform-origin: top left;
+  width: 222%;
+  height: 222px;
+}
+
+.thumbnail-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border-top: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.thumbnail-label span:nth-child(2) {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thumbnail-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.thumbnail-item:hover .thumbnail-close {
+  opacity: 1;
+}
+
+.thumbnail-close:hover {
+  color: var(--danger);
+}
+
+.thumbnail-main {
+  flex: 1;
+  min-height: 0;
+}
+
+.thumbnail-main .terminal-card {
+  height: 100%;
+}
+
+.focus-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
 }
 
 .terminal-grid.view-focus {

@@ -1,7 +1,20 @@
 {
   "name": "claude-session-manager",
   "version": "0.1.0",
-  "description": "Claude Code 터미널 세션 관리 앱 — 멀티 뷰 & 일괄 resume",
+  "description": "Desktop app for managing multiple Claude Code terminal sessions with grid view, bulk resume, and AI-powered session naming",
+  "author": "samko@samlab.co.kr",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samko-co/claude-session-manager"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "terminal",
+    "session-manager",
+    "electron"
+  ],
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
@@ -13,9 +26,9 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
-    "@xterm/xterm": "^5.5.0",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-webgl": "^0.18.0",
+    "@xterm/xterm": "^5.5.0",
     "node-pty": "^1.0.0"
   },
   "devDependencies": {
@@ -33,14 +46,22 @@
     "vite-plugin-electron-renderer": "^0.14.0"
   },
   "build": {
-    "appId": "com.claude-session-manager",
+    "appId": "com.samlab.claude-session-manager",
     "productName": "Claude Session Manager",
+    "copyright": "Copyright © 2026 Sangwook Ko",
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "extraResources": [
+      {
+        "from": "build/tray-icon.png",
+        "to": "tray-icon.png"
+      }
+    ]
   }
 }
