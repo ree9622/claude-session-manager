@@ -64,16 +64,10 @@ function SessionItem({
             </div>
           )}
         </div>
-        <button
-          className="btn-icon quick-open"
-          onClick={(e) => { e.stopPropagation(); onResume(); }}
-          title={t('session.quickOpen')}
-        >▶</button>
-        <button
-          className="btn-icon quick-open expand-btn"
-          onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
-          title={t('session.expand')}
-        >{isExpanded ? '▾' : '▸'}</button>
+        <div className="session-item-actions" onClick={e => e.stopPropagation()}>
+          <button className="btn btn-sm session-action-btn" onClick={onResume}>{t('session.open')}</button>
+          <button className="btn btn-sm session-action-btn" onClick={onToggleExpand}>{isExpanded ? '−' : '+'}</button>
+        </div>
         <span className="session-time">{timeAgo(session.lastActivity)}</span>
       </div>
 

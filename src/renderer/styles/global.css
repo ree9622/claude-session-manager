@@ -410,27 +410,21 @@ body {
   margin-top: 1px;
 }
 
-.quick-open {
-  width: 24px;
-  height: 24px;
-  font-size: 10px;
+.session-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
   opacity: 0;
   transition: opacity 0.15s;
-  color: var(--accent);
-  border-color: var(--accent);
 }
 
-.session-item-row:hover .quick-open {
+.session-item-row:hover .session-item-actions {
   opacity: 1;
 }
 
-.expand-btn {
-  opacity: 0.5 !important;
-  font-size: 9px !important;
-}
-
-.expand-btn:hover {
-  opacity: 1 !important;
+.session-action-btn {
+  padding: 2px 8px !important;
+  font-size: 11px !important;
 }
 
 .session-time {
