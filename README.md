@@ -78,6 +78,14 @@ Claude Code를 많이 쓰면 공감할 겁니다:
 
 ---
 
+## Firewall Notice / 방화벽 안내
+
+On first launch, Windows Firewall may ask you to allow network access. This is because the app checks for updates from GitHub Releases on startup. **No other network requests are made.** All session data stays local on your machine.
+
+첫 실행 시 Windows 방화벽이 네트워크 허용을 물을 수 있습니다. 앱이 시작할 때 GitHub Releases에서 업데이트를 확인하기 때문입니다. **그 외의 네트워크 요청은 없습니다.** 모든 세션 데이터는 로컬에만 저장됩니다.
+
+---
+
 ## Getting Started / 시작하기
 
 ```bash
