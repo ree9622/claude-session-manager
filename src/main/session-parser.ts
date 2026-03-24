@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import readline from 'readline';
+import { execFile } from 'child_process';
+import { logger } from './logger';
 
 export interface SessionInfo {
   id: string;
@@ -199,33 +201,52 @@ export class SessionParser {
     const details = await this.getSessionDetails(sessionId, projectDir);
     if (!details || details.messages.length === 0) return 'Empty Session';
 
-    // Extract key topics from first few user messages
     const userMessages = details.messages
       .filter(m => m.type === 'user')
-      .slice(0, 3)
+      .slice(0, 5)
       .map(m => m.content)
-      .join(' ');
+      .join('\n')
+      .slice(0, 1000);
 
-    // Simple keyword extraction for naming
-    const name = this.extractNameFromContent(userMessages);
+    const prompt = `아래 대화 내용을 보고 이 세션의 이름을 한국어 3~6단어로 지어줘. 이름만 출력하고 다른 설명은 붙이지 마.\n\n${userMessages}`;
+
+    try {
+      const name = await this.callClaude(prompt);
+      const cleaned = name.trim().replace(/^["']|["']$/g, '').slice(0, 50);
+      if (cleaned) {
+        this.namesCache[sessionId] = cleaned;
+        this.saveNames();
+        logger.info('session', `Generated name: "${cleaned}" for ${sessionId.slice(0, 8)}`);
+        return cleaned;
+      }
+    } catch (err) {
+      logger.error('session', 'claude -p failed, using fallback', err);
+    }
+
+    // Fallback: simple extraction
+    const fallback = userMessages
+      .replace(/```[\s\S]*?```/g, '')
+      .replace(/https?:\/\/[^\s]+/g, '')
+      .replace(/[^\w가-힣\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 50);
+    const name = fallback || 'Unnamed Session';
     this.namesCache[sessionId] = name;
     this.saveNames();
     return name;
   }
 
-  private extractNameFromContent(content: string): string {
-    // Remove common noise
-    const cleaned = content
-      .replace(/```[\s\S]*?```/g, '')
-      .replace(/https?:\/\/[^\s]+/g, '')
-      .replace(/[^\w가-힣\s]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    // Take first meaningful phrase (up to 50 chars)
-    const truncated = cleaned.slice(0, 80);
-    const lastSpace = truncated.lastIndexOf(' ');
-    return (lastSpace > 20 ? truncated.slice(0, lastSpace) : truncated) || 'Unnamed Session';
+  private callClaude(prompt: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const claude = execFile('claude', ['-p', '--model', 'haiku', prompt], {
+        timeout: 15000,
+        env: { ...process.env },
+      }, (err, stdout, stderr) => {
+        if (err) return reject(err);
+        resolve(stdout.trim());
+      });
+    });
   }
 
   setSessionName(sessionId: string, name: string) {

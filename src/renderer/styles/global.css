@@ -81,6 +81,40 @@ body {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  transition: width 0.2s, min-width 0.2s;
+}
+
+.sidebar-collapsed {
+  width: 44px;
+  min-width: 44px;
+  align-items: center;
+  padding-top: 8px;
+}
+
+.btn-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.btn-icon:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.sidebar-toggle {
+  font-size: 12px;
 }
 
 .main-content {
@@ -310,6 +344,20 @@ body {
   margin-top: 1px;
 }
 
+.quick-open {
+  width: 24px;
+  height: 24px;
+  font-size: 10px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.session-item-row:hover .quick-open {
+  opacity: 1;
+}
+
 .session-time {
   font-size: 10px;
   color: var(--text-muted);
@@ -474,6 +522,27 @@ body {
 
 .terminal-card.focused {
   border-color: var(--accent);
+}
+
+.terminal-card.dragging {
+  opacity: 0.4;
+}
+
+.terminal-card.drop-target {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
+.drag-handle {
+  cursor: grab;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
 }
 
 .terminal-card-header {

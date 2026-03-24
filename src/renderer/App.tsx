@@ -11,17 +11,15 @@ export function App() {
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [focusedTerminal, setFocusedTerminal] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [showNewSession, setShowNewSession] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Load sessions + restore saved terminals on mount
   useEffect(() => {
     loadSessions();
     restoreSavedTerminals();
   }, []);
 
-  // Save terminal state on window close
   useEffect(() => {
     const handleBeforeUnload = () => {
       const toSave = activeTerminals
@@ -37,8 +35,6 @@ export function App() {
     try {
       const saved = await window.api.state.load();
       if (saved.length === 0) return;
-      console.log('[restore] Restoring', saved.length, 'terminals');
-
       for (const t of saved) {
         const ptyId = await window.api.pty.create({
           sessionId: t.sessionId,
@@ -70,7 +66,6 @@ export function App() {
   };
 
   const handleSearch = useCallback(async (query: string) => {
-    setSearchQuery(query);
     if (query.trim()) {
       const results = await window.api.sessions.search(query);
       setSessions(results);
@@ -81,16 +76,11 @@ export function App() {
 
   const handleResumeSession = useCallback(async (session: SessionInfo) => {
     const name = session.name || session.firstPrompt.slice(0, 40);
-    console.log('[resume]', { id: session.id, cwd: session.cwd, name });
-
     const ptyId = await window.api.pty.create({
       sessionId: session.id,
       cwd: session.cwd,
       name,
     });
-
-    console.log('[resume] pty created:', ptyId);
-
     setActiveTerminals(prev => [...prev, {
       ptyId,
       sessionId: session.id,
@@ -112,7 +102,7 @@ export function App() {
     const ptyId = await window.api.pty.create({ cwd, name });
     setActiveTerminals(prev => [...prev, {
       ptyId,
-      name: name || `New Session`,
+      name: name || 'New Session',
       cwd,
       status: 'running',
     }]);
@@ -122,9 +112,7 @@ export function App() {
   const handleKillTerminal = useCallback(async (ptyId: string) => {
     await window.api.pty.kill(ptyId);
     setActiveTerminals(prev => prev.filter(t => t.ptyId !== ptyId));
-    if (focusedTerminal === ptyId) {
-      setFocusedTerminal(null);
-    }
+    if (focusedTerminal === ptyId) setFocusedTerminal(null);
   }, [focusedTerminal]);
 
   const handleTerminalExit = useCallback((ptyId: string) => {
@@ -144,6 +132,7 @@ export function App() {
     }
   }, []);
 
+  // 2) Delete session → also kill from grid if active
   const handleDeleteSession = useCallback(async (session: SessionInfo) => {
     const ok = await window.api.sessions.delete(session.id, session.projectDir);
     if (ok) {
@@ -153,14 +142,18 @@ export function App() {
         next.delete(session.id);
         return next;
       });
+      // Kill any active terminal using this session
+      setActiveTerminals(prev => {
+        const toKill = prev.filter(t => t.sessionId === session.id);
+        toKill.forEach(t => window.api.pty.kill(t.ptyId));
+        return prev.filter(t => t.sessionId !== session.id);
+      });
     }
   }, []);
 
   const handleCleanup = useCallback(async (days: number) => {
     const deleted = await window.api.sessions.deleteOld(days);
-    if (deleted > 0) {
-      await loadSessions();
-    }
+    if (deleted > 0) await loadSessions();
     return deleted;
   }, []);
 
@@ -175,10 +168,18 @@ export function App() {
 
   const handleFocusTerminal = useCallback((ptyId: string) => {
     setFocusedTerminal(ptyId);
-    if (viewMode === 'thumbnail') {
-      setViewMode('focus');
-    }
+    if (viewMode === 'thumbnail') setViewMode('focus');
   }, [viewMode]);
+
+  // 3) DnD reorder
+  const handleReorderTerminals = useCallback((fromIndex: number, toIndex: number) => {
+    setActiveTerminals(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  }, []);
 
   return (
     <>
@@ -189,6 +190,8 @@ export function App() {
         <Sidebar
           sessions={sessions}
           selectedSessions={selectedSessions}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(p => !p)}
           onToggleSelect={toggleSessionSelection}
           onResumeSession={handleResumeSession}
           onBulkResume={handleBulkResume}
@@ -204,6 +207,8 @@ export function App() {
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             activeCount={activeTerminals.length}
+            sidebarCollapsed={sidebarCollapsed}
+            onToggleSidebar={() => setSidebarCollapsed(p => !p)}
           />
           <TerminalGrid
             terminals={activeTerminals}
@@ -212,6 +217,7 @@ export function App() {
             onFocusTerminal={handleFocusTerminal}
             onKillTerminal={handleKillTerminal}
             onTerminalExit={handleTerminalExit}
+            onReorder={handleReorderTerminals}
           />
         </div>
       </div>

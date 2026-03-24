@@ -6,6 +6,8 @@ type SortMode = 'project' | 'time';
 interface SidebarProps {
   sessions: SessionInfo[];
   selectedSessions: Set<string>;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
   onToggleSelect: (id: string) => void;
   onResumeSession: (session: SessionInfo) => void;
   onBulkResume: () => void;
@@ -62,7 +64,6 @@ function SessionItem({
 }) {
   return (
     <div className={`session-item ${isSelected ? 'selected' : ''} ${isExpanded ? 'expanded' : ''}`}>
-      {/* Collapsed row */}
       <div className="session-item-row" onClick={onToggleExpand}>
         <div
           className={`checkbox ${isSelected ? 'checked' : ''}`}
@@ -79,10 +80,17 @@ function SessionItem({
             </div>
           )}
         </div>
+        {/* 4) Quick open button — no expand needed */}
+        <button
+          className="btn-icon quick-open"
+          onClick={(e) => { e.stopPropagation(); onResume(); }}
+          title="바로 열기"
+        >
+          ▶
+        </button>
         <span className="session-time">{timeAgo(session.lastActivity)}</span>
       </div>
 
-      {/* Expanded detail */}
       {isExpanded && (
         <div className="session-detail" onClick={e => e.stopPropagation()}>
           <div className="session-detail-info">
@@ -134,6 +142,8 @@ function SessionItem({
 export function Sidebar({
   sessions,
   selectedSessions,
+  collapsed,
+  onToggleCollapse,
   onToggleSelect,
   onResumeSession,
   onBulkResume,
@@ -149,7 +159,6 @@ export function Sidebar({
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
 
-  // Group sessions by project
   const groupedByProject = useMemo(() => {
     const groups = new Map<string, SessionInfo[]>();
     for (const session of sessions) {
@@ -157,14 +166,12 @@ export function Sidebar({
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(session);
     }
-    // Sort each group by time
     for (const items of groups.values()) {
       items.sort((a, b) => b.lastActivity - a.lastActivity);
     }
     return groups;
   }, [sessions]);
 
-  // Group sessions by time period
   const groupedByTime = useMemo(() => {
     const sorted = [...sessions].sort((a, b) => b.lastActivity - a.lastActivity);
     const groups = new Map<string, SessionInfo[]>();
@@ -187,21 +194,33 @@ export function Sidebar({
     });
   };
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchValue(e.target.value);
-    onSearch(e.target.value);
-  };
+  // 5) Collapsed sidebar — thin strip with toggle button
+  if (collapsed) {
+    return (
+      <div className="sidebar sidebar-collapsed">
+        <button className="btn-icon sidebar-toggle" onClick={onToggleCollapse} title="사이드바 펼치기">
+          ☰
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="sidebar">
       <div className="sidebar-header">
-        <input
-          className="search-input"
-          type="text"
-          placeholder="세션 검색... (이름, 프롬프트, 프로젝트)"
-          value={searchValue}
-          onChange={handleSearchChange}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input
+            className="search-input"
+            type="text"
+            placeholder="세션 검색..."
+            value={searchValue}
+            onChange={e => { setSearchValue(e.target.value); onSearch(e.target.value); }}
+            style={{ flex: 1 }}
+          />
+          <button className="btn-icon sidebar-toggle" onClick={onToggleCollapse} title="사이드바 접기">
+            ◀
+          </button>
+        </div>
         <div className="sidebar-actions">
           <button className="btn btn-primary" onClick={onNewSession}>
             + 새 세션
@@ -213,7 +232,6 @@ export function Sidebar({
           )}
         </div>
         <div className="sidebar-actions">
-          {/* Sort toggle */}
           <div className="sort-toggle">
             <button
               className={`sort-btn ${sortMode === 'project' ? 'active' : ''}`}
@@ -234,7 +252,6 @@ export function Sidebar({
               const deleted = await onCleanup(30);
               alert(`${deleted}개 세션 정리됨 (30일 이상)`);
             }}
-            title="30일 이상 된 세션 정리"
           >
             🗑️ 정리
           </button>
@@ -243,25 +260,16 @@ export function Sidebar({
 
       <div className="session-list">
         {loading ? (
-          <div className="empty-state">
-            <p>세션 목록 불러오는 중...</p>
-          </div>
+          <div className="empty-state"><p>불러오는 중...</p></div>
         ) : sessions.length === 0 ? (
-          <div className="empty-state">
-            <p>세션이 없습니다</p>
-          </div>
+          <div className="empty-state"><p>세션이 없습니다</p></div>
         ) : (
           Array.from(groups.entries()).map(([groupKey, items]) => {
             const isCollapsed = collapsedGroups.has(groupKey);
             return (
               <div key={groupKey} className="session-group">
-                <div
-                  className="session-group-header"
-                  onClick={() => toggleGroup(groupKey)}
-                >
-                  <span className={`session-group-chevron ${isCollapsed ? 'collapsed' : ''}`}>
-                    ▾
-                  </span>
+                <div className="session-group-header" onClick={() => toggleGroup(groupKey)}>
+                  <span className={`session-group-chevron ${isCollapsed ? 'collapsed' : ''}`}>▾</span>
                   <span className="session-group-label">{groupKey}</span>
                   <span className="session-group-count">{items.length}</span>
                 </div>
