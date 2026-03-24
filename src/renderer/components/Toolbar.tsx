@@ -9,9 +9,10 @@ interface ToolbarProps {
   sidebarCollapsed: boolean;
   onToggleSidebar: () => void;
   onLangChange: () => void;
+  onCloseAll: () => void;
 }
 
-export function Toolbar({ viewMode, onViewModeChange, activeCount, sidebarCollapsed, onToggleSidebar, onLangChange }: ToolbarProps) {
+export function Toolbar({ viewMode, onViewModeChange, activeCount, sidebarCollapsed, onToggleSidebar, onLangChange, onCloseAll }: ToolbarProps) {
   const lang = getLang();
   return (
     <div className="toolbar">
@@ -35,6 +36,14 @@ export function Toolbar({ viewMode, onViewModeChange, activeCount, sidebarCollap
         <span className="active-count">
           {activeCount > 0 ? t('toolbar.active', { n: activeCount }) : t('toolbar.noTerminals')}
         </span>
+        {activeCount > 0 && (
+          <button
+            className="btn btn-sm btn-danger"
+            onClick={() => { if (confirm(t('toolbar.closeAllConfirm'))) onCloseAll(); }}
+          >
+            {t('toolbar.closeAll')}
+          </button>
+        )}
         <button
           className="btn btn-sm"
           onClick={onLangChange}

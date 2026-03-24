@@ -44,6 +44,8 @@ const translations = {
   'view.focus': { en: 'Focus', ko: '포커스' },
   'toolbar.active': { en: '{n} terminals active', ko: '{n}개 터미널 활성' },
   'toolbar.noTerminals': { en: 'No terminals', ko: '터미널 없음' },
+  'toolbar.closeAll': { en: 'Close all', ko: '전체 닫기' },
+  'toolbar.closeAllConfirm': { en: 'Close all terminals?', ko: '모든 터미널을 닫을까요?' },
 
   // Terminal grid
   'terminal.empty': { en: 'No active terminals', ko: '활성 터미널이 없습니다' },

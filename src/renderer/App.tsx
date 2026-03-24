@@ -130,6 +130,12 @@ export function App() {
     if (focusedTerminal === ptyId) setFocusedTerminal(null);
   }, [focusedTerminal]);
 
+  const handleCloseAll = useCallback(async () => {
+    await window.api.pty.killAll();
+    setActiveTerminals([]);
+    setFocusedTerminal(null);
+  }, []);
+
   const handleTerminalExit = useCallback((ptyId: string) => {
     setActiveTerminals(prev =>
       prev.map(t => t.ptyId === ptyId ? { ...t, status: 'exited' as const } : t)
@@ -224,6 +230,7 @@ export function App() {
             sidebarCollapsed={sidebarCollapsed}
             onToggleSidebar={() => setSidebarCollapsed(p => !p)}
             onLangChange={handleLangChange}
+            onCloseAll={handleCloseAll}
           />
           <TerminalGrid
             terminals={activeTerminals}
