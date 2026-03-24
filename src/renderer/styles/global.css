@@ -495,6 +495,32 @@ body {
   grid-auto-rows: minmax(250px, 1fr);
 }
 
+/* New layout classes */
+.terminal-container {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.terminal-container.layout-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-auto-rows: minmax(250px, 1fr);
+  gap: 8px;
+  overflow: auto;
+}
+
+.terminal-container.layout-single {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.terminal-container.layout-single .terminal-card {
+  flex: 1;
+  min-height: 0;
+}
+
 /* Thumbnail layout: strip on top + large view below */
 .thumbnail-layout {
   display: flex;

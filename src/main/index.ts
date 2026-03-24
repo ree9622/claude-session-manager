@@ -78,11 +78,17 @@ function createTray() {
 function createWindow() {
   logger.info('app', 'Creating main window');
 
+  const fs = require('fs');
+  const iconDev = path.join(__dirname, '../../build/icon.png');
+  const iconProd = path.join(process.resourcesPath, 'icon.png');
+  const iconPath = fs.existsSync(iconDev) ? iconDev : (fs.existsSync(iconProd) ? iconProd : undefined);
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 800,
     minHeight: 600,
+    icon: iconPath,
     backgroundColor: '#0a0a0f',
     titleBarStyle: 'hidden',
     titleBarOverlay: {

@@ -58,6 +58,7 @@
       "allowToChangeInstallationDirectory": true
     },
     "extraResources": [
+      { "from": "build/icon.png", "to": "icon.png" },
       {
         "from": "build/tray-icon.png",
         "to": "tray-icon.png"
