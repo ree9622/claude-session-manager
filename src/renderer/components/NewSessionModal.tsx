@@ -1,45 +1,75 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { t } from '../i18n';
+import { SessionInfo } from '../types';
 
 interface NewSessionModalProps {
   onSubmit: (cwd: string, name: string) => void;
   onClose: () => void;
+  sessions: SessionInfo[];
 }
 
-const PRESET_DIRS = [
-  { label: 'Desktop', path: 'C:\\Users\\ko\\Desktop' },
-  { label: 'ClassUp', path: 'C:\\Users\\ko\\Documents\\GitHub\\classup-front-back' },
-  { label: 'LetMeUp', path: 'C:\\Users\\ko\\Documents\\GitHub\\letmeup-front-back' },
-  { label: 'StockUp', path: 'C:\\Users\\ko\\Documents\\GitHub\\stockup' },
-];
-
-export function NewSessionModal({ onSubmit, onClose }: NewSessionModalProps) {
-  const [cwd, setCwd] = useState(PRESET_DIRS[0].path);
+export function NewSessionModal({ onSubmit, onClose, sessions }: NewSessionModalProps) {
+  const [cwd, setCwd] = useState('');
   const [name, setName] = useState('');
+
+  // Extract unique project directories from sessions
+  const projectDirs = React.useMemo(() => {
+    const dirs = new Map<string, string>();
+    for (const s of sessions) {
+      if (s.cwd && !dirs.has(s.cwd)) {
+        dirs.set(s.cwd, s.projectName);
+      }
+    }
+    return Array.from(dirs.entries()).map(([path, label]) => ({ path, label }));
+  }, [sessions]);
+
+  useEffect(() => {
+    if (projectDirs.length > 0 && !cwd) {
+      setCwd(projectDirs[0].path);
+    }
+  }, [projectDirs]);
+
+  const handleBrowse = async () => {
+    const selected = await window.api.openDirectoryDialog();
+    if (selected) setCwd(selected);
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <h2>{t('modal.newSession')}</h2>
+
         <div className="form-group">
           <label>{t('modal.workDir')}</label>
           <select value={cwd} onChange={e => setCwd(e.target.value)}>
-            {PRESET_DIRS.map(d => (
+            {projectDirs.map(d => (
               <option key={d.path} value={d.path}>{d.label} — {d.path}</option>
             ))}
           </select>
         </div>
+
         <div className="form-group">
           <label>{t('modal.customPath')}</label>
-          <input type="text" placeholder="C:\path\to\project" value={cwd} onChange={e => setCwd(e.target.value)} />
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input
+              type="text"
+              value={cwd}
+              onChange={e => setCwd(e.target.value)}
+              style={{ flex: 1 }}
+              readOnly
+            />
+            <button className="btn" onClick={handleBrowse}>{t('modal.browse')}</button>
+          </div>
         </div>
+
         <div className="form-group">
           <label>{t('modal.sessionName')}</label>
           <input type="text" placeholder={t('modal.namePlaceholder')} value={name} onChange={e => setName(e.target.value)} />
         </div>
+
         <div className="modal-actions">
           <button className="btn" onClick={onClose}>{t('modal.cancel')}</button>
-          <button className="btn btn-primary" onClick={() => onSubmit(cwd, name)}>{t('modal.start')}</button>
+          <button className="btn btn-primary" onClick={() => onSubmit(cwd, name)} disabled={!cwd}>{t('modal.start')}</button>
         </div>
       </div>
     </div>

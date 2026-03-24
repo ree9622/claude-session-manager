@@ -241,6 +241,7 @@ export function App() {
             onTerminalExit={handleTerminalExit}
             onReorder={handleReorderTerminals}
             onViewModeChange={setViewMode}
+            onNewSession={() => setShowNewSession(true)}
           />
         </div>
       </div>
@@ -249,6 +250,7 @@ export function App() {
         <NewSessionModal
           onSubmit={handleNewSession}
           onClose={() => setShowNewSession(false)}
+          sessions={sessions}
         />
       )}
     </>

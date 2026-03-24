@@ -12,6 +12,7 @@ interface TerminalGridProps {
   onTerminalExit: (ptyId: string) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
   onViewModeChange: (mode: ViewMode) => void;
+  onNewSession: () => void;
 }
 
 export function TerminalGrid({
@@ -22,6 +23,7 @@ export function TerminalGrid({
   onKillTerminal,
   onReorder,
   onViewModeChange,
+  onNewSession,
 }: TerminalGridProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
@@ -33,7 +35,8 @@ export function TerminalGrid({
         <div className="empty-state">
           <div className="icon">⬛</div>
           <p>{t('terminal.empty')}</p>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('terminal.emptyHint')}</p>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>{t('terminal.emptyHint')}</p>
+          <button className="btn btn-primary" onClick={onNewSession}>{t('sidebar.newSession')}</button>
         </div>
       </div>
     );

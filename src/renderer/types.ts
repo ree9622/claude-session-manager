@@ -49,6 +49,7 @@ declare global {
         getPath: () => Promise<string>;
       };
       openExternal: (url: string) => void;
+      openDirectoryDialog: () => Promise<string | null>;
     };
   }
 }

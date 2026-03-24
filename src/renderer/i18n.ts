@@ -56,7 +56,8 @@ const translations = {
   // New session modal
   'modal.newSession': { en: 'New Claude Session', ko: '새 Claude 세션' },
   'modal.workDir': { en: 'Working directory', ko: '작업 디렉토리' },
-  'modal.customPath': { en: 'Custom path (optional)', ko: '커스텀 경로 (선택)' },
+  'modal.customPath': { en: 'Custom path', ko: '경로 직접 선택' },
+  'modal.browse': { en: 'Browse...', ko: '찾아보기...' },
   'modal.sessionName': { en: 'Session name (optional)', ko: '세션 이름 (선택)' },
   'modal.namePlaceholder': { en: 'e.g. Fix payment bug', ko: '예: 결제 버그 수정' },
   'modal.cancel': { en: 'Cancel', ko: '취소' },

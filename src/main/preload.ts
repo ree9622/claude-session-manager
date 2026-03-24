@@ -49,6 +49,7 @@ contextBridge.exposeInMainWorld('api', {
     getPath: () => ipcRenderer.invoke('log:get-path') as Promise<string>,
   },
 
-  // Shell
+  // Shell & Dialog
   openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
+  openDirectoryDialog: () => ipcRenderer.invoke('dialog:open-directory') as Promise<string | null>,
 });

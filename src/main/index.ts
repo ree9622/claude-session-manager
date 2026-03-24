@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage, dialog } from 'electron';
 import path from 'path';
 import { PtyManager } from './pty-manager';
 import { SessionParser } from './session-parser';
@@ -209,6 +209,16 @@ ipcMain.handle('log:get-path', async () => {
 // Shell
 ipcMain.handle('shell:open-external', async (_e, url: string) => {
   shell.openExternal(url);
+});
+
+// Dialog
+ipcMain.handle('dialog:open-directory', async () => {
+  if (!mainWindow) return null;
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory'],
+    title: 'Select working directory',
+  });
+  return result.canceled ? null : result.filePaths[0];
 });
 
 // App lifecycle

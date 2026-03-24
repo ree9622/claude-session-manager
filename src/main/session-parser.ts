@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import readline from 'readline';
-import { execFile } from 'child_process';
+import { spawn } from 'child_process';
 import { logger } from './logger';
 
 export interface SessionInfo {
@@ -239,13 +239,26 @@ export class SessionParser {
 
   private callClaude(prompt: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      const claude = execFile('claude', ['-p', '--model', 'haiku', prompt], {
-        timeout: 15000,
+      const proc = spawn('claude', ['-p', '--model', 'haiku'], {
+        timeout: 30000,
         env: { ...process.env },
-      }, (err, stdout, stderr) => {
-        if (err) return reject(err);
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+
+      let stdout = '';
+      let stderr = '';
+      proc.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+      proc.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+
+      proc.on('close', (code) => {
+        if (code !== 0) return reject(new Error(`claude exit ${code}: ${stderr}`));
         resolve(stdout.trim());
       });
+      proc.on('error', reject);
+
+      // Send prompt via stdin
+      proc.stdin.write(prompt);
+      proc.stdin.end();
     });
   }
 
