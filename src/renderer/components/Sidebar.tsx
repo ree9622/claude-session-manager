@@ -81,7 +81,7 @@ function SessionItem({
 
       {/* Expanded detail */}
       {isExpanded && (
-        <div className="session-detail">
+        <div className="session-detail" onClick={e => e.stopPropagation()}>
           <div className="session-detail-info">
             <div className="session-detail-row">
               <span className="session-detail-label">ID</span>
@@ -101,7 +101,7 @@ function SessionItem({
               </div>
             )}
           </div>
-          <div className="session-detail-actions">
+          <div className="session-detail-actions" onClick={e => e.stopPropagation()}>
             <button className="btn btn-primary btn-sm" onClick={onResume}>
               ▶ 열기
             </button>
