@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { SessionInfo } from '../types';
 
+type SortMode = 'project' | 'time';
+
 interface SidebarProps {
   sessions: SessionInfo[];
   selectedSessions: Set<string>;
@@ -9,7 +11,7 @@ interface SidebarProps {
   onBulkResume: () => void;
   onSearch: (query: string) => void;
   onNewSession: () => void;
-  onGenerateNames: () => void;
+  onGenerateName: (session: SessionInfo) => void;
   onCleanup: (days: number) => Promise<number>;
   loading: boolean;
 }
@@ -26,6 +28,92 @@ function timeAgo(timestamp: number): string {
   return `${Math.floor(days / 30)}개월 전`;
 }
 
+function timeLabel(timestamp: number): string {
+  const diff = Date.now() - timestamp;
+  const hours = diff / 3600000;
+  if (hours < 24) return '오늘';
+  if (hours < 48) return '어제';
+  if (hours < 168) return '이번 주';
+  if (hours < 720) return '이번 달';
+  return '오래 전';
+}
+
+function SessionItem({
+  session,
+  isSelected,
+  isExpanded,
+  onToggleSelect,
+  onToggleExpand,
+  onResume,
+  onGenerateName,
+  showProject,
+}: {
+  session: SessionInfo;
+  isSelected: boolean;
+  isExpanded: boolean;
+  onToggleSelect: () => void;
+  onToggleExpand: () => void;
+  onResume: () => void;
+  onGenerateName: () => void;
+  showProject: boolean;
+}) {
+  return (
+    <div className={`session-item ${isSelected ? 'selected' : ''} ${isExpanded ? 'expanded' : ''}`}>
+      {/* Collapsed row */}
+      <div className="session-item-row" onClick={onToggleExpand}>
+        <div
+          className={`checkbox ${isSelected ? 'checked' : ''}`}
+          onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
+        />
+        <div className="session-item-summary">
+          <div className="session-name">
+            {session.name || session.id.slice(0, 8)}
+          </div>
+          <div className="session-prompt">{session.firstPrompt}</div>
+        </div>
+        <span className="session-time">{timeAgo(session.lastActivity)}</span>
+      </div>
+
+      {/* Expanded detail */}
+      {isExpanded && (
+        <div className="session-detail">
+          <div className="session-detail-info">
+            <div className="session-detail-row">
+              <span className="session-detail-label">ID</span>
+              <span className="session-detail-value">{session.id.slice(0, 12)}...</span>
+            </div>
+            <div className="session-detail-row">
+              <span className="session-detail-label">경로</span>
+              <span className="session-detail-value">{session.projectName}</span>
+            </div>
+            <div className="session-detail-row">
+              <span className="session-detail-label">메시지</span>
+              <span className="session-detail-value">{session.messageCount}개+</span>
+            </div>
+            {session.firstPrompt && (
+              <div className="session-detail-prompt">
+                {session.firstPrompt}
+              </div>
+            )}
+          </div>
+          <div className="session-detail-actions">
+            <button className="btn btn-primary btn-sm" onClick={onResume}>
+              ▶ 열기
+            </button>
+            <button
+              className="btn btn-sm"
+              onClick={onGenerateName}
+              title="이 세션의 이름을 AI로 생성"
+            >
+              🏷️ 이름 생성
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Sidebar({
   sessions,
   selectedSessions,
@@ -34,22 +122,52 @@ export function Sidebar({
   onBulkResume,
   onSearch,
   onNewSession,
-  onGenerateNames,
+  onGenerateName,
   onCleanup,
   loading,
 }: SidebarProps) {
   const [searchValue, setSearchValue] = useState('');
+  const [sortMode, setSortMode] = useState<SortMode>('project');
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [expandedSession, setExpandedSession] = useState<string | null>(null);
 
   // Group sessions by project
-  const grouped = useMemo(() => {
+  const groupedByProject = useMemo(() => {
     const groups = new Map<string, SessionInfo[]>();
     for (const session of sessions) {
       const key = session.projectName;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(session);
     }
+    // Sort each group by time
+    for (const items of groups.values()) {
+      items.sort((a, b) => b.lastActivity - a.lastActivity);
+    }
     return groups;
   }, [sessions]);
+
+  // Group sessions by time period
+  const groupedByTime = useMemo(() => {
+    const sorted = [...sessions].sort((a, b) => b.lastActivity - a.lastActivity);
+    const groups = new Map<string, SessionInfo[]>();
+    for (const session of sorted) {
+      const key = timeLabel(session.lastActivity);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(session);
+    }
+    return groups;
+  }, [sessions]);
+
+  const groups = sortMode === 'project' ? groupedByProject : groupedByTime;
+
+  const toggleGroup = (groupKey: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) next.delete(groupKey);
+      else next.add(groupKey);
+      return next;
+    });
+  };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchValue(e.target.value);
@@ -77,9 +195,21 @@ export function Sidebar({
           )}
         </div>
         <div className="sidebar-actions">
-          <button className="btn btn-sm" onClick={onGenerateNames} title="AI로 세션 이름 생성">
-            🏷️ 이름 생성
-          </button>
+          {/* Sort toggle */}
+          <div className="sort-toggle">
+            <button
+              className={`sort-btn ${sortMode === 'project' ? 'active' : ''}`}
+              onClick={() => setSortMode('project')}
+            >
+              경로별
+            </button>
+            <button
+              className={`sort-btn ${sortMode === 'time' ? 'active' : ''}`}
+              onClick={() => setSortMode('time')}
+            >
+              시간별
+            </button>
+          </div>
           <button
             className="btn btn-sm btn-danger"
             onClick={async () => {
@@ -103,36 +233,42 @@ export function Sidebar({
             <p>세션이 없습니다</p>
           </div>
         ) : (
-          Array.from(grouped.entries()).map(([project, items]) => (
-            <div key={project}>
-              <div className="session-group-label">{project}</div>
-              {items.map(session => (
+          Array.from(groups.entries()).map(([groupKey, items]) => {
+            const isCollapsed = collapsedGroups.has(groupKey);
+            return (
+              <div key={groupKey} className="session-group">
                 <div
-                  key={session.id}
-                  className={`session-item ${selectedSessions.has(session.id) ? 'selected' : ''}`}
-                  onDoubleClick={() => onResumeSession(session)}
+                  className="session-group-header"
+                  onClick={() => toggleGroup(groupKey)}
                 >
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                    <div
-                      className={`checkbox ${selectedSessions.has(session.id) ? 'checked' : ''}`}
-                      onClick={(e) => { e.stopPropagation(); onToggleSelect(session.id); }}
-                      style={{ marginTop: 2 }}
-                    />
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                      <div className="session-name">
-                        {session.name || session.id.slice(0, 8)}
-                      </div>
-                      <div className="session-prompt">{session.firstPrompt}</div>
-                      <div className="session-meta">
-                        <span className="session-project">{session.projectName}</span>
-                        <span>{timeAgo(session.lastActivity)}</span>
-                      </div>
-                    </div>
-                  </div>
+                  <span className={`session-group-chevron ${isCollapsed ? 'collapsed' : ''}`}>
+                    ▾
+                  </span>
+                  <span className="session-group-label">{groupKey}</span>
+                  <span className="session-group-count">{items.length}</span>
                 </div>
-              ))}
-            </div>
-          ))
+                {!isCollapsed && (
+                  <div className="session-group-items">
+                    {items.map(session => (
+                      <SessionItem
+                        key={session.id}
+                        session={session}
+                        isSelected={selectedSessions.has(session.id)}
+                        isExpanded={expandedSession === session.id}
+                        onToggleSelect={() => onToggleSelect(session.id)}
+                        onToggleExpand={() =>
+                          setExpandedSession(prev => prev === session.id ? null : session.id)
+                        }
+                        onResume={() => onResumeSession(session)}
+                        onGenerateName={() => onGenerateName(session)}
+                        showProject={sortMode === 'time'}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
     </div>

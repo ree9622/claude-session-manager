@@ -94,18 +94,16 @@ export function App() {
     );
   }, []);
 
-  const handleGenerateNames = useCallback(async () => {
-    const updated = [...sessions];
-    for (const session of updated) {
-      if (!session.name) {
-        try {
-          const name = await window.api.sessions.generateName(session.id, session.projectDir);
-          session.name = name;
-        } catch {}
-      }
+  const handleGenerateName = useCallback(async (session: SessionInfo) => {
+    try {
+      const name = await window.api.sessions.generateName(session.id, session.projectDir);
+      setSessions(prev =>
+        prev.map(s => s.id === session.id ? { ...s, name } : s)
+      );
+    } catch (err) {
+      console.error('Failed to generate name:', err);
     }
-    setSessions(updated);
-  }, [sessions]);
+  }, []);
 
   const handleCleanup = useCallback(async (days: number) => {
     const deleted = await window.api.sessions.deleteOld(days);
@@ -145,7 +143,7 @@ export function App() {
           onBulkResume={handleBulkResume}
           onSearch={handleSearch}
           onNewSession={() => setShowNewSession(true)}
-          onGenerateNames={handleGenerateNames}
+          onGenerateName={handleGenerateName}
           onCleanup={handleCleanup}
           loading={loading}
         />
