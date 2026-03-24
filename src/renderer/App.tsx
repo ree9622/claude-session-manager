@@ -20,15 +20,12 @@ export function App() {
     restoreSavedTerminals();
   }, []);
 
+  // Auto-save state whenever activeTerminals changes
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      const toSave = activeTerminals
-        .filter(t => t.status === 'running')
-        .map(t => ({ sessionId: t.sessionId, name: t.name, cwd: t.cwd }));
-      window.api.state.save(toSave);
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    const toSave = activeTerminals
+      .filter(t => t.status === 'running')
+      .map(t => ({ sessionId: t.sessionId, name: t.name, cwd: t.cwd }));
+    window.api.state.save(toSave);
   }, [activeTerminals]);
 
   const restoreSavedTerminals = async () => {

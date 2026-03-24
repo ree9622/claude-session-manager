@@ -134,17 +134,10 @@ ipcMain.handle('shell:open-external', async (_e, url: string) => {
 // App lifecycle
 app.whenReady().then(createWindow);
 
-// Save state BEFORE quit — this fires before windows close
-app.on('before-quit', () => {
-  const terminals = ptyManager.list();
-  const toSave: SavedTerminal[] = terminals
-    .filter(t => t.status === 'running')
-    .map(t => ({ sessionId: t.sessionId, name: t.name, cwd: t.cwd }));
-  stateStore.save(toSave);
-  logger.info('app', `before-quit: saved ${toSave.length} terminals`);
-});
-
+// Renderer saves state via beforeunload → state:save IPC.
+// Main process only kills PTYs and quits — does NOT overwrite saved state.
 app.on('window-all-closed', () => {
+  logger.info('app', 'window-all-closed, killing PTYs');
   ptyManager.killAll();
   app.quit();
 });
