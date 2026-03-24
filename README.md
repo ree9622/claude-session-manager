@@ -81,7 +81,7 @@ Claude Code를 많이 쓰면 공감할 겁니다:
 ## Getting Started / 시작하기
 
 ```bash
-git clone https://github.com/samko-co/claude-session-manager.git
+git clone https://github.com/ree9622/claude-session-manager.git
 cd claude-session-manager
 npm install
 ```
