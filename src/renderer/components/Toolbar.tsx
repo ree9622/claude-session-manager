@@ -1,5 +1,6 @@
 import React from 'react';
 import { ViewMode } from '../types';
+import { t, getLang, setLang, Lang } from '../i18n';
 
 interface ToolbarProps {
   viewMode: ViewMode;
@@ -7,20 +8,16 @@ interface ToolbarProps {
   activeCount: number;
   sidebarCollapsed: boolean;
   onToggleSidebar: () => void;
+  onLangChange: () => void;
 }
 
-const viewLabels: Record<ViewMode, string> = {
-  thumbnail: '썸네일',
-  grid: '그리드',
-  focus: '포커스',
-};
-
-export function Toolbar({ viewMode, onViewModeChange, activeCount, sidebarCollapsed, onToggleSidebar }: ToolbarProps) {
+export function Toolbar({ viewMode, onViewModeChange, activeCount, sidebarCollapsed, onToggleSidebar, onLangChange }: ToolbarProps) {
+  const lang = getLang();
   return (
     <div className="toolbar">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {sidebarCollapsed && (
-          <button className="btn-icon" onClick={onToggleSidebar} title="사이드바 펼치기">☰</button>
+          <button className="btn-icon" onClick={onToggleSidebar} title={t('sidebar.expand')}>☰</button>
         )}
         <div className="view-switcher">
           {(['thumbnail', 'grid', 'focus'] as ViewMode[]).map(mode => (
@@ -29,14 +26,23 @@ export function Toolbar({ viewMode, onViewModeChange, activeCount, sidebarCollap
               className={viewMode === mode ? 'active' : ''}
               onClick={() => onViewModeChange(mode)}
             >
-              {viewLabels[mode]}
+              {t(`view.${mode}` as any)}
             </button>
           ))}
         </div>
       </div>
-      <span className="active-count">
-        {activeCount > 0 ? `${activeCount}개 터미널 활성` : '터미널 없음'}
-      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span className="active-count">
+          {activeCount > 0 ? t('toolbar.active', { n: activeCount }) : t('toolbar.noTerminals')}
+        </span>
+        <button
+          className="btn btn-sm"
+          onClick={onLangChange}
+          title="Language / 언어"
+        >
+          {lang === 'ko' ? 'EN' : '한국어'}
+        </button>
+      </div>
     </div>
   );
 }

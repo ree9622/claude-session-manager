@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { SessionInfo } from '../types';
+import { t } from '../i18n';
 
 type SortMode = 'project' | 'time';
 
@@ -22,44 +23,32 @@ interface SidebarProps {
 function timeAgo(timestamp: number): string {
   const diff = Date.now() - timestamp;
   const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return '방금 전';
-  if (minutes < 60) return `${minutes}분 전`;
+  if (minutes < 1) return t('time.now');
+  if (minutes < 60) return t('time.minutes', { n: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}시간 전`;
+  if (hours < 24) return t('time.hours', { n: hours });
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}일 전`;
-  return `${Math.floor(days / 30)}개월 전`;
+  if (days < 30) return t('time.days', { n: days });
+  return t('time.months', { n: Math.floor(days / 30) });
 }
 
 function timeLabel(timestamp: number): string {
   const diff = Date.now() - timestamp;
   const hours = diff / 3600000;
-  if (hours < 24) return '오늘';
-  if (hours < 48) return '어제';
-  if (hours < 168) return '이번 주';
-  if (hours < 720) return '이번 달';
-  return '오래 전';
+  if (hours < 24) return t('time.today');
+  if (hours < 48) return t('time.yesterday');
+  if (hours < 168) return t('time.thisWeek');
+  if (hours < 720) return t('time.thisMonth');
+  return t('time.older');
 }
 
 function SessionItem({
-  session,
-  isSelected,
-  isExpanded,
-  onToggleSelect,
-  onToggleExpand,
-  onResume,
-  onGenerateName,
-  onDelete,
-  showProject,
+  session, isSelected, isExpanded,
+  onToggleSelect, onToggleExpand, onResume, onGenerateName, onDelete, showProject,
 }: {
-  session: SessionInfo;
-  isSelected: boolean;
-  isExpanded: boolean;
-  onToggleSelect: () => void;
-  onToggleExpand: () => void;
-  onResume: () => void;
-  onGenerateName: () => void;
-  onDelete: () => void;
+  session: SessionInfo; isSelected: boolean; isExpanded: boolean;
+  onToggleSelect: () => void; onToggleExpand: () => void;
+  onResume: () => void; onGenerateName: () => void; onDelete: () => void;
   showProject: boolean;
 }) {
   return (
@@ -70,9 +59,7 @@ function SessionItem({
           onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
         />
         <div className="session-item-summary">
-          <div className="session-name">
-            {session.name || session.id.slice(0, 8)}
-          </div>
+          <div className="session-name">{session.name || session.id.slice(0, 8)}</div>
           <div className="session-prompt">{session.firstPrompt}</div>
           {showProject && (
             <div className="session-item-meta">
@@ -80,14 +67,11 @@ function SessionItem({
             </div>
           )}
         </div>
-        {/* 4) Quick open button — no expand needed */}
         <button
           className="btn-icon quick-open"
           onClick={(e) => { e.stopPropagation(); onResume(); }}
-          title="바로 열기"
-        >
-          ▶
-        </button>
+          title={t('session.quickOpen')}
+        >▶</button>
         <span className="session-time">{timeAgo(session.lastActivity)}</span>
       </div>
 
@@ -99,38 +83,22 @@ function SessionItem({
               <span className="session-detail-value">{session.id.slice(0, 12)}...</span>
             </div>
             <div className="session-detail-row">
-              <span className="session-detail-label">경로</span>
+              <span className="session-detail-label">{t('detail.path')}</span>
               <span className="session-detail-value">{session.projectName}</span>
             </div>
             <div className="session-detail-row">
-              <span className="session-detail-label">메시지</span>
-              <span className="session-detail-value">{session.messageCount}개+</span>
+              <span className="session-detail-label">{t('detail.messages')}</span>
+              <span className="session-detail-value">{t('session.messages', { n: session.messageCount })}</span>
             </div>
             {session.firstPrompt && (
-              <div className="session-detail-prompt">
-                {session.firstPrompt}
-              </div>
+              <div className="session-detail-prompt">{session.firstPrompt}</div>
             )}
           </div>
           <div className="session-detail-actions" onClick={e => e.stopPropagation()}>
-            <button className="btn btn-primary btn-sm" onClick={onResume}>
-              ▶ 열기
-            </button>
-            <button
-              className="btn btn-sm"
-              onClick={onGenerateName}
-              title="이 세션의 이름을 AI로 생성"
-            >
-              🏷️ 이름 생성
-            </button>
-            <button
-              className="btn btn-sm btn-danger"
-              onClick={() => {
-                if (confirm('이 세션을 삭제할까요?')) onDelete();
-              }}
-              title="세션 삭제"
-            >
-              🗑️ 삭제
+            <button className="btn btn-primary btn-sm" onClick={onResume}>▶ {t('session.open')}</button>
+            <button className="btn btn-sm" onClick={onGenerateName}>🏷️ {t('session.generateName')}</button>
+            <button className="btn btn-sm btn-danger" onClick={() => { if (confirm(t('session.deleteConfirm'))) onDelete(); }}>
+              🗑️ {t('session.delete')}
             </button>
           </div>
         </div>
@@ -140,19 +108,9 @@ function SessionItem({
 }
 
 export function Sidebar({
-  sessions,
-  selectedSessions,
-  collapsed,
-  onToggleCollapse,
-  onToggleSelect,
-  onResumeSession,
-  onBulkResume,
-  onSearch,
-  onNewSession,
-  onGenerateName,
-  onDeleteSession,
-  onCleanup,
-  loading,
+  sessions, selectedSessions, collapsed, onToggleCollapse,
+  onToggleSelect, onResumeSession, onBulkResume, onSearch,
+  onNewSession, onGenerateName, onDeleteSession, onCleanup, loading,
 }: SidebarProps) {
   const [searchValue, setSearchValue] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('project');
@@ -161,45 +119,36 @@ export function Sidebar({
 
   const groupedByProject = useMemo(() => {
     const groups = new Map<string, SessionInfo[]>();
-    for (const session of sessions) {
-      const key = session.projectName;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(session);
+    for (const s of sessions) {
+      if (!groups.has(s.projectName)) groups.set(s.projectName, []);
+      groups.get(s.projectName)!.push(s);
     }
-    for (const items of groups.values()) {
-      items.sort((a, b) => b.lastActivity - a.lastActivity);
-    }
+    for (const items of groups.values()) items.sort((a, b) => b.lastActivity - a.lastActivity);
     return groups;
   }, [sessions]);
 
   const groupedByTime = useMemo(() => {
     const sorted = [...sessions].sort((a, b) => b.lastActivity - a.lastActivity);
     const groups = new Map<string, SessionInfo[]>();
-    for (const session of sorted) {
-      const key = timeLabel(session.lastActivity);
+    for (const s of sorted) {
+      const key = timeLabel(s.lastActivity);
       if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(session);
+      groups.get(key)!.push(s);
     }
     return groups;
   }, [sessions]);
 
   const groups = sortMode === 'project' ? groupedByProject : groupedByTime;
 
-  const toggleGroup = (groupKey: string) => {
+  const toggleGroup = (key: string) => {
     setCollapsedGroups(prev => {
       const next = new Set(prev);
-      if (next.has(groupKey)) next.delete(groupKey);
-      else next.add(groupKey);
+      next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
   };
 
-  // 5) Collapsed sidebar — thin strip with toggle button
-  if (collapsed) {
-    return (
-      <div className="sidebar sidebar-collapsed" />
-    );
-  }
+  if (collapsed) return <div className="sidebar sidebar-collapsed" />;
 
   return (
     <div className="sidebar">
@@ -208,57 +157,36 @@ export function Sidebar({
           <input
             className="search-input"
             type="text"
-            placeholder="세션 검색..."
+            placeholder={t('sidebar.search')}
             value={searchValue}
             onChange={e => { setSearchValue(e.target.value); onSearch(e.target.value); }}
             style={{ flex: 1 }}
           />
-          <button className="btn-icon sidebar-toggle" onClick={onToggleCollapse} title="사이드바 접기">
-            ◀
-          </button>
+          <button className="btn-icon sidebar-toggle" onClick={onToggleCollapse} title={t('sidebar.collapse')}>◀</button>
         </div>
         <div className="sidebar-actions">
-          <button className="btn btn-primary" onClick={onNewSession}>
-            + 새 세션
-          </button>
+          <button className="btn btn-primary" onClick={onNewSession}>{t('sidebar.newSession')}</button>
           {selectedSessions.size > 0 && (
-            <button className="btn" onClick={onBulkResume}>
-              ▶ 선택 열기 ({selectedSessions.size})
-            </button>
+            <button className="btn" onClick={onBulkResume}>▶ {t('sidebar.openSelected')} ({selectedSessions.size})</button>
           )}
         </div>
         <div className="sidebar-actions">
           <div className="sort-toggle">
-            <button
-              className={`sort-btn ${sortMode === 'project' ? 'active' : ''}`}
-              onClick={() => setSortMode('project')}
-            >
-              경로별
-            </button>
-            <button
-              className={`sort-btn ${sortMode === 'time' ? 'active' : ''}`}
-              onClick={() => setSortMode('time')}
-            >
-              시간별
-            </button>
+            <button className={`sort-btn ${sortMode === 'project' ? 'active' : ''}`} onClick={() => setSortMode('project')}>{t('sidebar.sortProject')}</button>
+            <button className={`sort-btn ${sortMode === 'time' ? 'active' : ''}`} onClick={() => setSortMode('time')}>{t('sidebar.sortTime')}</button>
           </div>
-          <button
-            className="btn btn-sm btn-danger"
-            onClick={async () => {
-              const deleted = await onCleanup(30);
-              alert(`${deleted}개 세션 정리됨 (30일 이상)`);
-            }}
-          >
-            🗑️ 정리
-          </button>
+          <button className="btn btn-sm btn-danger" onClick={async () => {
+            const deleted = await onCleanup(30);
+            alert(t('sidebar.cleanupResult', { n: deleted }));
+          }}>🗑️ {t('sidebar.cleanup')}</button>
         </div>
       </div>
 
       <div className="session-list">
         {loading ? (
-          <div className="empty-state"><p>불러오는 중...</p></div>
+          <div className="empty-state"><p>{t('sidebar.loading')}</p></div>
         ) : sessions.length === 0 ? (
-          <div className="empty-state"><p>세션이 없습니다</p></div>
+          <div className="empty-state"><p>{t('sidebar.noSessions')}</p></div>
         ) : (
           Array.from(groups.entries()).map(([groupKey, items]) => {
             const isCollapsed = collapsedGroups.has(groupKey);
@@ -278,9 +206,7 @@ export function Sidebar({
                         isSelected={selectedSessions.has(session.id)}
                         isExpanded={expandedSession === session.id}
                         onToggleSelect={() => onToggleSelect(session.id)}
-                        onToggleExpand={() =>
-                          setExpandedSession(prev => prev === session.id ? null : session.id)
-                        }
+                        onToggleExpand={() => setExpandedSession(prev => prev === session.id ? null : session.id)}
                         onResume={() => onResumeSession(session)}
                         onGenerateName={() => onGenerateName(session)}
                         onDelete={() => onDeleteSession(session)}

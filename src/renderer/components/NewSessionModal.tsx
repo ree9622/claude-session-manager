@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { t } from '../i18n';
 
 interface NewSessionModalProps {
   onSubmit: (cwd: string, name: string) => void;
@@ -19,42 +20,26 @@ export function NewSessionModal({ onSubmit, onClose }: NewSessionModalProps) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
-        <h2>새 Claude 세션</h2>
-
+        <h2>{t('modal.newSession')}</h2>
         <div className="form-group">
-          <label>작업 디렉토리</label>
+          <label>{t('modal.workDir')}</label>
           <select value={cwd} onChange={e => setCwd(e.target.value)}>
             {PRESET_DIRS.map(d => (
               <option key={d.path} value={d.path}>{d.label} — {d.path}</option>
             ))}
           </select>
         </div>
-
         <div className="form-group">
-          <label>커스텀 경로 (선택)</label>
-          <input
-            type="text"
-            placeholder="C:\path\to\project"
-            value={cwd}
-            onChange={e => setCwd(e.target.value)}
-          />
+          <label>{t('modal.customPath')}</label>
+          <input type="text" placeholder="C:\path\to\project" value={cwd} onChange={e => setCwd(e.target.value)} />
         </div>
-
         <div className="form-group">
-          <label>세션 이름 (선택)</label>
-          <input
-            type="text"
-            placeholder="예: ClassUp 결제 버그 수정"
-            value={name}
-            onChange={e => setName(e.target.value)}
-          />
+          <label>{t('modal.sessionName')}</label>
+          <input type="text" placeholder={t('modal.namePlaceholder')} value={name} onChange={e => setName(e.target.value)} />
         </div>
-
         <div className="modal-actions">
-          <button className="btn" onClick={onClose}>취소</button>
-          <button className="btn btn-primary" onClick={() => onSubmit(cwd, name)}>
-            세션 시작
-          </button>
+          <button className="btn" onClick={onClose}>{t('modal.cancel')}</button>
+          <button className="btn btn-primary" onClick={() => onSubmit(cwd, name)}>{t('modal.start')}</button>
         </div>
       </div>
     </div>

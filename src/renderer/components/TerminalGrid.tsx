@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { TerminalView } from './TerminalView';
 import { ActiveTerminal, ViewMode } from '../types';
+import { t } from '../i18n';
 
 interface TerminalGridProps {
   terminals: ActiveTerminal[];
@@ -10,6 +11,7 @@ interface TerminalGridProps {
   onKillTerminal: (ptyId: string) => void;
   onTerminalExit: (ptyId: string) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
+  onViewModeChange: (mode: ViewMode) => void;
 }
 
 function TerminalCard({
@@ -20,6 +22,7 @@ function TerminalCard({
   showDragHandle,
   showExpandBtn,
   onFocus,
+  onExpand,
   onKill,
   onDragStart,
   onDragOver,
@@ -33,6 +36,7 @@ function TerminalCard({
   showDragHandle: boolean;
   showExpandBtn: boolean;
   onFocus: () => void;
+  onExpand?: () => void;
   onKill: () => void;
   onDragStart?: () => void;
   onDragOver?: (e: React.DragEvent) => void;
@@ -58,8 +62,8 @@ function TerminalCard({
           </span>
         </div>
         <div className="terminal-card-actions">
-          {showExpandBtn && (
-            <button className="btn btn-sm" onClick={onFocus} title="Focus">⛶</button>
+          {showExpandBtn && onExpand && (
+            <button className="btn btn-sm" onClick={onExpand} title="Focus">⛶</button>
           )}
           <button className="btn btn-sm btn-danger" onClick={onKill} title="Close">✕</button>
         </div>
@@ -83,6 +87,7 @@ export function TerminalGrid({
   onFocusTerminal,
   onKillTerminal,
   onReorder,
+  onViewModeChange,
 }: TerminalGridProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
@@ -93,9 +98,9 @@ export function TerminalGrid({
       <div className="terminal-area">
         <div className="empty-state">
           <div className="icon">⬛</div>
-          <p>No active terminals</p>
+          <p>{t('terminal.empty')}</p>
           <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            Click ▶ on a session or press "+ New Session" to start
+            {t('terminal.emptyHint')}
           </p>
         </div>
       </div>
@@ -238,6 +243,7 @@ export function TerminalGrid({
             showDragHandle={true}
             showExpandBtn={true}
             onFocus={() => onFocusTerminal(terminal.ptyId)}
+            onExpand={() => { onFocusTerminal(terminal.ptyId); onViewModeChange('focus'); }}
             onKill={() => onKillTerminal(terminal.ptyId)}
             onDragStart={() => handleDragStart(index)}
             onDragOver={(e) => handleDragOver(e, index)}

@@ -4,6 +4,7 @@ import { Toolbar } from './components/Toolbar';
 import { TerminalGrid } from './components/TerminalGrid';
 import { NewSessionModal } from './components/NewSessionModal';
 import { SessionInfo, ActiveTerminal, ViewMode } from './types';
+import { t, getLang, setLang } from './i18n';
 
 export function App() {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
@@ -13,7 +14,14 @@ export function App() {
   const [focusedTerminal, setFocusedTerminal] = useState<string | null>(null);
   const [showNewSession, setShowNewSession] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [lang, setLangState] = useState(getLang());
   const [loading, setLoading] = useState(true);
+
+  const handleLangChange = useCallback(() => {
+    const next = lang === 'ko' ? 'en' : 'ko';
+    setLang(next);
+    setLangState(next);
+  }, [lang]);
 
   useEffect(() => {
     loadSessions();
@@ -191,7 +199,7 @@ export function App() {
   return (
     <>
       <div className="titlebar">
-        <h1>Claude Session Manager</h1>
+        <h1>{t('app.title')}</h1>
       </div>
       <div className="app-layout">
         <Sidebar
@@ -216,6 +224,7 @@ export function App() {
             activeCount={activeTerminals.length}
             sidebarCollapsed={sidebarCollapsed}
             onToggleSidebar={() => setSidebarCollapsed(p => !p)}
+            onLangChange={handleLangChange}
           />
           <TerminalGrid
             terminals={activeTerminals}
@@ -225,6 +234,7 @@ export function App() {
             onKillTerminal={handleKillTerminal}
             onTerminalExit={handleTerminalExit}
             onReorder={handleReorderTerminals}
+            onViewModeChange={setViewMode}
           />
         </div>
       </div>
