@@ -54,36 +54,40 @@ export class SessionParser {
   }
 
   async listSessions(): Promise<SessionInfo[]> {
-    const sessions: SessionInfo[] = [];
-
-    if (!fs.existsSync(PROJECTS_DIR)) return sessions;
+    if (!fs.existsSync(PROJECTS_DIR)) return [];
 
     const projectDirs = fs.readdirSync(PROJECTS_DIR);
 
+    // Collect all parse tasks
+    const tasks: Promise<SessionInfo | null>[] = [];
+
     for (const projectDir of projectDirs) {
       const projectPath = path.join(PROJECTS_DIR, projectDir);
-      if (!fs.statSync(projectPath).isDirectory()) continue;
+      try {
+        if (!fs.statSync(projectPath).isDirectory()) continue;
+      } catch { continue; }
 
       const files = fs.readdirSync(projectPath).filter(f => f.endsWith('.jsonl'));
 
       for (const file of files) {
         const sessionId = file.replace('.jsonl', '');
         const filePath = path.join(projectPath, file);
-        const stat = fs.statSync(filePath);
 
-        try {
-          const info = await this.parseSessionQuick(filePath, sessionId, projectDir);
-          if (info) {
-            info.name = this.namesCache[sessionId];
-            sessions.push(info);
-          }
-        } catch {
-          // Skip corrupt files
-        }
+        tasks.push(
+          this.parseSessionQuick(filePath, sessionId, projectDir)
+            .then(info => {
+              if (info) info.name = this.namesCache[sessionId];
+              return info;
+            })
+            .catch(() => null)
+        );
       }
     }
 
-    // Sort by last activity (newest first)
+    // Parse all sessions in parallel
+    const results = await Promise.all(tasks);
+    const sessions = results.filter((s): s is SessionInfo => s !== null);
+
     sessions.sort((a, b) => b.lastActivity - a.lastActivity);
     return sessions;
   }

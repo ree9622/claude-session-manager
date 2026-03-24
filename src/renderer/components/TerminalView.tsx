@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
@@ -16,6 +16,15 @@ export function TerminalView({ ptyId, isVisible, isFocused, onFocus }: TerminalV
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const fitTimerRef = useRef<number | null>(null);
+
+  // Debounced fit — prevents dozens of calls during layout changes
+  const debouncedFit = () => {
+    if (fitTimerRef.current) cancelAnimationFrame(fitTimerRef.current);
+    fitTimerRef.current = requestAnimationFrame(() => {
+      try { fitAddonRef.current?.fit(); } catch {}
+    });
+  };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -48,39 +57,35 @@ export function TerminalView({ ptyId, isVisible, isFocused, onFocus }: TerminalV
       fontFamily: "'Cascadia Code', 'Consolas', 'Courier New', monospace",
       cursorBlink: true,
       cursorStyle: 'bar',
-      scrollback: 5000,
+      scrollback: 3000,
       allowProposedApi: true,
+      fastScrollModifier: 'alt',
+      smoothScrollDuration: 0,
     });
 
     const fitAddon = new FitAddon();
     terminal.loadAddon(fitAddon);
-
     terminal.open(containerRef.current);
 
-    // Try WebGL renderer for performance
+    // WebGL renderer — GPU-accelerated, much faster for 10+ terminals
     try {
-      const webglAddon = new WebglAddon();
-      terminal.loadAddon(webglAddon);
-    } catch {
-      // Falls back to canvas renderer
-    }
+      terminal.loadAddon(new WebglAddon());
+    } catch {}
 
     fitAddon.fit();
 
-    // Connect to PTY
     const removeDataListener = window.api.pty.onData(ptyId, (data) => {
       terminal.write(data);
     });
 
     const removeExitListener = window.api.pty.onExit(ptyId, () => {
-      terminal.write('\r\n\x1b[90m[세션 종료]\x1b[0m\r\n');
+      terminal.write('\r\n\x1b[90m[Session ended]\x1b[0m\r\n');
     });
 
     terminal.onData((data) => {
       window.api.pty.write(ptyId, data);
     });
 
-    // Initial resize
     window.api.pty.resize(ptyId, terminal.cols, terminal.rows);
 
     terminal.onResize(({ cols, rows }) => {
@@ -94,22 +99,19 @@ export function TerminalView({ ptyId, isVisible, isFocused, onFocus }: TerminalV
       removeExitListener();
     };
 
-    // ResizeObserver for auto-fit
-    const observer = new ResizeObserver(() => {
-      try {
-        fitAddon.fit();
-      } catch {}
-    });
+    // ResizeObserver with debounce — only fit when visible
+    const observer = new ResizeObserver(debouncedFit);
     observer.observe(containerRef.current);
 
     return () => {
+      if (fitTimerRef.current) cancelAnimationFrame(fitTimerRef.current);
       observer.disconnect();
       cleanupRef.current?.();
       terminal.dispose();
     };
   }, [ptyId]);
 
-  // Focus terminal + scroll to bottom when focused
+  // Focus + scroll to bottom
   useEffect(() => {
     if (isFocused && terminalRef.current) {
       terminalRef.current.scrollToBottom();
@@ -117,26 +119,16 @@ export function TerminalView({ ptyId, isVisible, isFocused, onFocus }: TerminalV
     }
   }, [isFocused]);
 
-  // Refit when visibility changes
+  // Refit when becoming visible
   useEffect(() => {
-    if (isVisible && fitAddonRef.current) {
-      setTimeout(() => {
-        try {
-          fitAddonRef.current?.fit();
-        } catch {}
-      }, 50);
-    }
+    if (isVisible) debouncedFit();
   }, [isVisible]);
 
   return (
     <div
       ref={containerRef}
       onClick={onFocus}
-      style={{
-        width: '100%',
-        height: '100%',
-        overflow: 'hidden',
-      }}
+      style={{ width: '100%', height: '100%', overflow: 'hidden' }}
     />
   );
 }

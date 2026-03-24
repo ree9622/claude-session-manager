@@ -225,22 +225,43 @@ function setupAutoUpdater() {
 
 ipcMain.handle('updater:install', async () => autoUpdater.quitAndInstall());
 
-// App lifecycle
-app.whenReady().then(() => {
-  createWindow();
-  createTray();
-  setupAutoUpdater();
-});
+// Single instance lock — prevent multiple app windows
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    // Someone tried to open a second instance — focus existing window
+    if (mainWindow) {
+      if (!mainWindow.isVisible()) mainWindow.show();
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
 
-app.on('before-quit', () => {
-  isQuitting = true;
-  logger.info('app', 'before-quit');
-  ptyManager.killAll();
-});
+  // App lifecycle
+  app.whenReady().then(() => {
+    createWindow();
+    createTray();
+    setupAutoUpdater();
+  });
 
-app.on('window-all-closed', () => {});
+  app.on('before-quit', () => {
+    isQuitting = true;
+    logger.info('app', 'before-quit');
+    ptyManager.killAll();
+  });
 
-app.on('activate', () => {
-  if (mainWindow === null) createWindow();
-  else mainWindow.show();
-});
+  app.on('window-all-closed', () => {
+    // If closeToTray is off, quit the app
+    if (!settings.get('closeToTray')) {
+      isQuitting = true;
+      app.quit();
+    }
+  });
+
+  app.on('activate', () => {
+    if (mainWindow === null) createWindow();
+    else mainWindow.show();
+  });
+}

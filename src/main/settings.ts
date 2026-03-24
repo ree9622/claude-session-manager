@@ -12,7 +12,7 @@ interface Settings {
 }
 
 const defaults: Settings = {
-  closeToTray: true,
+  closeToTray: false,
   startOnLogin: false,
   lang: 'ko',
   firstRun: true,
