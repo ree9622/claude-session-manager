@@ -65,13 +65,14 @@ export function App() {
     restoreSavedTerminals();
   }, []);
 
-  // Auto-save state whenever activeTerminals changes
+  // Auto-save state whenever activeTerminals changes (skip during restore)
   useEffect(() => {
+    if (restoring) return;
     const toSave = activeTerminals
       .filter(t => t.status === 'running')
       .map(t => ({ sessionId: t.sessionId, name: t.name, cwd: t.cwd }));
     window.api.state.save(toSave);
-  }, [activeTerminals]);
+  }, [activeTerminals, restoring]);
 
   const restoreSavedTerminals = async () => {
     try {
