@@ -222,6 +222,16 @@ export function App() {
     );
   }, []);
 
+  const handleToggleFavorite = useCallback(async (session: SessionInfo) => {
+    const val = await window.api.sessions.toggleFavorite(session.id);
+    setSessions(prev => prev.map(s => s.id === session.id ? { ...s, favorite: val } : s));
+  }, []);
+
+  const handleToggleHidden = useCallback(async (session: SessionInfo) => {
+    const val = await window.api.sessions.toggleHidden(session.id);
+    setSessions(prev => prev.map(s => s.id === session.id ? { ...s, hidden: val } : s));
+  }, []);
+
   const handleGenerateName = useCallback(async (session: SessionInfo) => {
     try {
       const name = await window.api.sessions.generateName(session.id, session.projectDir);
@@ -300,6 +310,8 @@ export function App() {
           onSearch={handleSearch}
           onNewSession={() => setShowNewSession(true)}
           onGenerateName={handleGenerateName}
+          onToggleFavorite={handleToggleFavorite}
+          onToggleHidden={handleToggleHidden}
           onDeleteSession={handleDeleteSession}
           onRefresh={loadSessions}
           onCleanup={handleCleanup}

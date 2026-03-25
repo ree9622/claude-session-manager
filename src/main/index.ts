@@ -152,6 +152,8 @@ ipcMain.handle('sessions:get-details', async (_e, id: string, dir: string) => se
 ipcMain.handle('sessions:generate-name', async (_e, id: string, dir: string) => sessionParser.generateSessionName(id, dir));
 ipcMain.handle('sessions:delete', async (_e, id: string, dir: string) => sessionParser.deleteSession(id, dir));
 ipcMain.handle('sessions:delete-old', async (_e, days: number) => sessionParser.deleteOldSessions(days));
+ipcMain.handle('sessions:toggle-favorite', async (_e, id: string) => sessionParser.toggleFavorite(id));
+ipcMain.handle('sessions:toggle-hidden', async (_e, id: string) => sessionParser.toggleHidden(id));
 
 // PTY management
 ipcMain.handle('pty:create', async (_e, options: { sessionId?: string; cwd?: string; name?: string }) => {

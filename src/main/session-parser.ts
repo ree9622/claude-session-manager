@@ -14,17 +14,24 @@ export interface SessionInfo {
   lastActivity: number;
   messageCount: number;
   name?: string;
+  favorite?: boolean;
+  hidden?: boolean;
 }
 
 const CLAUDE_DIR = path.join(os.homedir(), '.claude');
 const PROJECTS_DIR = path.join(CLAUDE_DIR, 'projects');
 const NAMES_FILE = path.join(CLAUDE_DIR, 'session-names.json');
+const META_FILE = path.join(CLAUDE_DIR, 'session-meta.json');
+
+interface SessionMeta { favorite?: boolean; hidden?: boolean; }
 
 export class SessionParser {
   private namesCache: Record<string, string> = {};
+  private metaCache: Record<string, SessionMeta> = {};
 
   constructor() {
     this.loadNames();
+    this.loadMeta();
   }
 
   private loadNames() {
@@ -35,6 +42,36 @@ export class SessionParser {
     } catch {
       this.namesCache = {};
     }
+  }
+
+  private loadMeta() {
+    try {
+      if (fs.existsSync(META_FILE)) {
+        this.metaCache = JSON.parse(fs.readFileSync(META_FILE, 'utf-8'));
+      }
+    } catch {
+      this.metaCache = {};
+    }
+  }
+
+  private saveMeta() {
+    fs.writeFileSync(META_FILE, JSON.stringify(this.metaCache, null, 2));
+  }
+
+  toggleFavorite(sessionId: string): boolean {
+    const current = this.metaCache[sessionId]?.favorite || false;
+    if (!this.metaCache[sessionId]) this.metaCache[sessionId] = {};
+    this.metaCache[sessionId].favorite = !current;
+    this.saveMeta();
+    return !current;
+  }
+
+  toggleHidden(sessionId: string): boolean {
+    const current = this.metaCache[sessionId]?.hidden || false;
+    if (!this.metaCache[sessionId]) this.metaCache[sessionId] = {};
+    this.metaCache[sessionId].hidden = !current;
+    this.saveMeta();
+    return !current;
   }
 
   private saveNames() {
@@ -76,7 +113,14 @@ export class SessionParser {
         tasks.push(
           this.parseSessionQuick(filePath, sessionId, projectDir)
             .then(info => {
-              if (info) info.name = this.namesCache[sessionId];
+              if (info) {
+                info.name = this.namesCache[sessionId];
+                const meta = this.metaCache[sessionId];
+                if (meta) {
+                  info.favorite = meta.favorite;
+                  info.hidden = meta.hidden;
+                }
+              }
               return info;
             })
             .catch(() => null)

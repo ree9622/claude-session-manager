@@ -27,6 +27,9 @@ const translations = {
   'session.messages': { en: '{n}+', ko: '{n}개+' },
   'session.noData': { en: '(no session data)', ko: '(세션 데이터 없음)' },
   'session.expand': { en: 'Details', ko: '상세' },
+  'session.favorite': { en: 'Favorite', ko: '즐겨찾기' },
+  'session.hide': { en: 'Hide', ko: '숨기기' },
+  'sidebar.showHidden': { en: 'Hidden', ko: '숨긴 항목' },
 
   // Time
   'time.now': { en: 'Just now', ko: '방금 전' },

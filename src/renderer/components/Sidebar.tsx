@@ -17,6 +17,8 @@ interface SidebarProps {
   onNewSession: () => void;
   onGenerateName: (session: SessionInfo) => void;
   onDeleteSession: (session: SessionInfo) => void;
+  onToggleFavorite: (session: SessionInfo) => void;
+  onToggleHidden: (session: SessionInfo) => void;
   onRefresh: () => void;
   onCleanup: (days: number) => Promise<number>;
   loading: boolean;
@@ -46,11 +48,13 @@ function timeLabel(timestamp: number): string {
 
 function SessionItem({
   session, isSelected, isExpanded,
-  onToggleSelect, onToggleExpand, onResume, onGenerateName, onDelete, showProject,
+  onToggleSelect, onToggleExpand, onResume, onGenerateName, onDelete,
+  onToggleFavorite, onToggleHidden, showProject,
 }: {
   session: SessionInfo; isSelected: boolean; isExpanded: boolean;
   onToggleSelect: () => void; onToggleExpand: () => void;
   onResume: () => void; onGenerateName: () => void; onDelete: () => void;
+  onToggleFavorite: () => void; onToggleHidden: () => void;
   showProject: boolean;
 }) {
   return (
@@ -58,7 +62,7 @@ function SessionItem({
       <div className="session-item-row" onClick={onToggleSelect}>
         <div className={`checkbox ${isSelected ? 'checked' : ''}`} />
         <div className="session-item-summary">
-          <div className="session-name">{session.name || session.id.slice(0, 8)}</div>
+          <div className="session-name">{session.favorite ? '★ ' : ''}{session.name || session.id.slice(0, 8)}</div>
           <div className="session-prompt">{session.firstPrompt}</div>
           {showProject && (
             <div className="session-item-meta">
@@ -95,6 +99,12 @@ function SessionItem({
           <div className="session-detail-actions" onClick={e => e.stopPropagation()}>
             <button className="btn btn-primary btn-sm" onClick={onResume}>▶ {t('session.open')}</button>
             <button className="btn btn-sm" onClick={onGenerateName}>🏷️ {t('session.generateName')}</button>
+            <button className="btn btn-sm" onClick={onToggleFavorite}>
+              {session.favorite ? '★' : '☆'} {t('session.favorite')}
+            </button>
+            <button className="btn btn-sm" onClick={onToggleHidden}>
+              {t('session.hide')}
+            </button>
             <button className="btn btn-sm btn-danger" onClick={() => { if (confirm(t('session.deleteConfirm'))) onDelete(); }}>
               🗑️ {t('session.delete')}
             </button>
@@ -108,25 +118,40 @@ function SessionItem({
 export function Sidebar({
   sessions, selectedSessions, collapsed, onToggleCollapse,
   onToggleSelect, onResumeSession, onBulkResume, onSearch,
-  onNewSession, onGenerateName, onDeleteSession, onRefresh, onCleanup, loading,
+  onNewSession, onGenerateName, onDeleteSession, onToggleFavorite, onToggleHidden, onRefresh, onCleanup, loading,
 }: SidebarProps) {
   const [searchValue, setSearchValue] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('time');
+  const [showHidden, setShowHidden] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
 
+  // Filter hidden, sort favorites first
+  const filteredSessions = useMemo(() => {
+    let list = showHidden ? sessions : sessions.filter(s => !s.hidden);
+    // Favorites first
+    list = [...list].sort((a, b) => {
+      if (a.favorite && !b.favorite) return -1;
+      if (!a.favorite && b.favorite) return 1;
+      return 0;
+    });
+    return list;
+  }, [sessions, showHidden]);
+
+  const hiddenCount = useMemo(() => sessions.filter(s => s.hidden).length, [sessions]);
+
   const groupedByProject = useMemo(() => {
     const groups = new Map<string, SessionInfo[]>();
-    for (const s of sessions) {
+    for (const s of filteredSessions) {
       if (!groups.has(s.projectName)) groups.set(s.projectName, []);
       groups.get(s.projectName)!.push(s);
     }
     for (const items of groups.values()) items.sort((a, b) => b.lastActivity - a.lastActivity);
     return groups;
-  }, [sessions]);
+  }, [filteredSessions]);
 
   const groupedByTime = useMemo(() => {
-    const sorted = [...sessions].sort((a, b) => b.lastActivity - a.lastActivity);
+    const sorted = [...filteredSessions].sort((a, b) => b.lastActivity - a.lastActivity);
     const groups = new Map<string, SessionInfo[]>();
     for (const s of sorted) {
       const key = timeLabel(s.lastActivity);
@@ -134,7 +159,7 @@ export function Sidebar({
       groups.get(key)!.push(s);
     }
     return groups;
-  }, [sessions]);
+  }, [filteredSessions]);
 
   const groups = sortMode === 'project' ? groupedByProject : groupedByTime;
 
@@ -177,6 +202,11 @@ export function Sidebar({
             const deleted = await onCleanup(30);
             alert(t('sidebar.cleanupResult', { n: deleted }));
           }}>🗑️ {t('sidebar.cleanup')}</button>
+          {hiddenCount > 0 && (
+            <button className={`btn btn-sm ${showHidden ? 'btn-primary' : ''}`} onClick={() => setShowHidden(p => !p)}>
+              {t('sidebar.showHidden')} ({hiddenCount})
+            </button>
+          )}
         </div>
       </div>
 
@@ -208,6 +238,8 @@ export function Sidebar({
                         onResume={() => onResumeSession(session)}
                         onGenerateName={() => onGenerateName(session)}
                         onDelete={() => onDeleteSession(session)}
+                        onToggleFavorite={() => onToggleFavorite(session)}
+                        onToggleHidden={() => onToggleHidden(session)}
                         showProject={sortMode === 'time'}
                       />
                     ))}

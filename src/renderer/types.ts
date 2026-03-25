@@ -7,6 +7,8 @@ export interface SessionInfo {
   lastActivity: number;
   messageCount: number;
   name?: string;
+  favorite?: boolean;
+  hidden?: boolean;
 }
 
 export interface ActiveTerminal {
@@ -29,6 +31,8 @@ declare global {
         generateName: (sessionId: string, projectDir: string) => Promise<string>;
         deleteOld: (daysOld: number) => Promise<number>;
         delete: (sessionId: string, projectDir: string) => Promise<boolean>;
+        toggleFavorite: (id: string) => Promise<boolean>;
+        toggleHidden: (id: string) => Promise<boolean>;
       };
       pty: {
         create: (options: { sessionId?: string; cwd?: string; name?: string }) => Promise<string>;

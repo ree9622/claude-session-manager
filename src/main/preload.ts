@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('api', {
     deleteOld: (daysOld: number) => ipcRenderer.invoke('sessions:delete-old', daysOld),
     delete: (sessionId: string, projectDir: string) =>
       ipcRenderer.invoke('sessions:delete', sessionId, projectDir),
+    toggleFavorite: (id: string) => ipcRenderer.invoke('sessions:toggle-favorite', id) as Promise<boolean>,
+    toggleHidden: (id: string) => ipcRenderer.invoke('sessions:toggle-hidden', id) as Promise<boolean>,
   },
 
   // PTY management
