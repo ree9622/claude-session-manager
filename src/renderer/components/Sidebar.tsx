@@ -162,7 +162,6 @@ export function Sidebar({
           <button className="btn-icon sidebar-toggle" onClick={onToggleCollapse} title={t('sidebar.collapse')}>◀</button>
         </div>
         <div className="sidebar-actions">
-          <button className="btn btn-primary" onClick={onNewSession}>{t('sidebar.newSession')}</button>
           {selectedSessions.size > 0 && (
             <button className="btn" onClick={onBulkResume}>▶ {t('sidebar.openSelected')} ({selectedSessions.size})</button>
           )}
