@@ -138,18 +138,10 @@ export const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(
     onFocus();
   };
 
-  // Prevent spacebar from scrolling the page
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === ' ') {
-      e.preventDefault();
-    }
-  };
-
   return (
     <div
       ref={containerRef}
       onClick={handleClick}
-      onKeyDown={handleKeyDown}
       style={{ width: '100%', height: '100%', overflow: 'hidden' }}
     />
   );
