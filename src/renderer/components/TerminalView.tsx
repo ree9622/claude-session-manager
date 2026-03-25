@@ -138,10 +138,33 @@ export const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(
     onFocus();
   };
 
+  // Right-click = paste from clipboard
+  const handleContextMenu = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!terminalRef.current) return;
+
+    const selection = terminalRef.current.getSelection();
+    if (selection) {
+      // If text is selected, show copy option
+      await navigator.clipboard.writeText(selection);
+      terminalRef.current.clearSelection();
+    } else {
+      // No selection = paste
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          window.api.pty.write(ptyId, text);
+        }
+      } catch {}
+    }
+    terminalRef.current.focus();
+  };
+
   return (
     <div
       ref={containerRef}
       onClick={handleClick}
+      onContextMenu={handleContextMenu}
       style={{ width: '100%', height: '100%', overflow: 'hidden' }}
     />
   );
