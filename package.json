@@ -1,6 +1,6 @@
 {
   "name": "claude-session-manager",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Desktop app for managing multiple Claude Code terminal sessions with grid view, bulk resume, and AI-powered session naming",
   "author": "samko@samlab.co.kr",
   "license": "MIT",
