@@ -255,6 +255,7 @@ export function App() {
             onToggleSidebar={() => setSidebarCollapsed(p => !p)}
             onLangChange={handleLangChange}
             onCloseAll={handleCloseAll}
+            onNewSession={() => setShowNewSession(true)}
           />
           {restoring && activeTerminals.length === 0 ? (
             <div className="terminal-area">

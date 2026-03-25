@@ -41,14 +41,20 @@ export function TerminalGrid({
   }
 
   // Scroll all visible terminals to bottom on view/column change
+  // Two-phase: fit first, then scroll after layout settles
   const scrollAllToBottom = useCallback(() => {
-    setTimeout(() => {
-      for (const t of terminals) {
-        const ref = terminalRefs.current.get(t.ptyId);
-        ref?.current?.scrollToBottom();
-        ref?.current?.fit();
-      }
-    }, 100);
+    // Phase 1: fit all terminals
+    for (const t of terminals) {
+      terminalRefs.current.get(t.ptyId)?.current?.fit();
+    }
+    // Phase 2: scroll after fit completes (staggered for reliability)
+    for (let i = 0; i < 3; i++) {
+      setTimeout(() => {
+        for (const t of terminals) {
+          terminalRefs.current.get(t.ptyId)?.current?.scrollToBottom();
+        }
+      }, 50 + i * 150);
+    }
   }, [terminals]);
 
   useEffect(() => {

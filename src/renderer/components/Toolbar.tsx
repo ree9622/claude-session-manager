@@ -12,11 +12,12 @@ interface ToolbarProps {
   onToggleSidebar: () => void;
   onLangChange: () => void;
   onCloseAll: () => void;
+  onNewSession: () => void;
 }
 
 export function Toolbar({
   viewMode, onViewModeChange, activeCount, sidebarCollapsed,
-  gridColumns, onGridColumnsChange, onToggleSidebar, onLangChange, onCloseAll,
+  gridColumns, onGridColumnsChange, onToggleSidebar, onLangChange, onCloseAll, onNewSession,
 }: ToolbarProps) {
   const lang = getLang();
   return (
@@ -25,6 +26,7 @@ export function Toolbar({
         {sidebarCollapsed && (
           <button className="btn-icon" onClick={onToggleSidebar} title={t('sidebar.expand')}>☰</button>
         )}
+        <button className="btn btn-primary btn-sm" onClick={onNewSession}>{t('sidebar.newSession')}</button>
         <div className="view-switcher">
           {(['thumbnail', 'grid', 'focus'] as ViewMode[]).map(mode => (
             <button
