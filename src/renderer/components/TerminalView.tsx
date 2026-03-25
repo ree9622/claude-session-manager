@@ -85,6 +85,14 @@ export const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(
 
     const removeDataListener = window.api.pty.onData(ptyId, (data) => {
       terminal.write(data);
+      // Auto-scroll to bottom when new output arrives
+      // Only if viewport is near bottom (within 5 lines) to not fight manual scroll-up
+      const buf = terminal.buffer.active;
+      const viewportBottom = buf.viewportY + terminal.rows;
+      const totalLines = buf.length;
+      if (totalLines - viewportBottom < 5) {
+        terminal.scrollToBottom();
+      }
     });
 
     const removeExitListener = window.api.pty.onExit(ptyId, () => {
