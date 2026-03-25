@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { SessionInfo } from '../types';
 import { t } from '../i18n';
+import { SessionListSkeleton } from './Skeleton';
 
 type SortMode = 'project' | 'time';
 
@@ -180,7 +181,7 @@ export function Sidebar({
 
       <div className="session-list">
         {loading ? (
-          <div className="empty-state"><p>{t('sidebar.loading')}</p></div>
+          <SessionListSkeleton />
         ) : sessions.length === 0 ? (
           <div className="empty-state"><p>{t('sidebar.noSessions')}</p></div>
         ) : (

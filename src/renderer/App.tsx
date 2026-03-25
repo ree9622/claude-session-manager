@@ -4,6 +4,7 @@ import { Toolbar } from './components/Toolbar';
 import { TerminalGrid } from './components/TerminalGrid';
 import { NewSessionModal } from './components/NewSessionModal';
 import { UpdateBanner } from './components/UpdateBanner';
+import { TerminalRestoringSkeleton } from './components/Skeleton';
 import { SessionInfo, ActiveTerminal, ViewMode } from './types';
 import { t, getLang, setLang } from './i18n';
 
@@ -18,6 +19,8 @@ export function App() {
   const [gridColumns, setGridColumns] = useState(0); // 0 = auto
   const [lang, setLangState] = useState(getLang());
   const [loading, setLoading] = useState(true);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreCount, setRestoreCount] = useState(0);
 
   const handleLangChange = useCallback(() => {
     const next = lang === 'ko' ? 'en' : 'ko';
@@ -53,6 +56,9 @@ export function App() {
     try {
       const saved = await window.api.state.load();
       if (saved.length === 0) return;
+      setRestoring(true);
+      setRestoreCount(saved.length);
+
       for (const t of saved) {
         const ptyId = await window.api.pty.create({
           sessionId: t.sessionId,
@@ -69,6 +75,8 @@ export function App() {
       }
     } catch (err) {
       console.error('[restore] Failed:', err);
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -248,6 +256,11 @@ export function App() {
             onLangChange={handleLangChange}
             onCloseAll={handleCloseAll}
           />
+          {restoring && activeTerminals.length === 0 ? (
+            <div className="terminal-area">
+              <TerminalRestoringSkeleton count={restoreCount} />
+            </div>
+          ) : (
           <TerminalGrid
             terminals={activeTerminals}
             viewMode={viewMode}
@@ -260,6 +273,7 @@ export function App() {
             onViewModeChange={setViewMode}
             onNewSession={() => setShowNewSession(true)}
           />
+          )}
         </div>
       </div>
 
