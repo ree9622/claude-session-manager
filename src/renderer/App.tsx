@@ -80,7 +80,12 @@ export function App() {
       setRestoring(true);
       setRestoreCount(saved.length);
 
-      for (const t of saved) {
+      // Only restore terminals that have a sessionId (can be resumed)
+      // Skip terminals without sessionId — they were new sessions, not resumable
+      const resumable = saved.filter(t => t.sessionId);
+      setRestoreCount(resumable.length);
+
+      for (const t of resumable) {
         const ptyId = await window.api.pty.create({
           sessionId: t.sessionId,
           cwd: t.cwd,

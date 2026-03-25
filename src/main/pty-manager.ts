@@ -17,7 +17,7 @@ interface PtyInstance {
 export class PtyManager {
   private instances = new Map<string, PtyInstance>();
 
-  create(options: { sessionId?: string; cwd?: string; name?: string }): string {
+  create(options: { sessionId?: string; cwd?: string; name?: string; resume?: boolean }): string {
     const id = crypto.randomUUID() as string;
     const cwd = options.cwd || os.homedir();
 
@@ -59,6 +59,9 @@ export class PtyManager {
       let cmd: string;
       if (options.sessionId) {
         cmd = `claude --resume ${options.sessionId}`;
+      } else if (options.resume) {
+        // Resume most recent session in this directory
+        cmd = `claude --continue`;
       } else {
         const nameArg = options.name ? ` --name "${options.name}"` : '';
         cmd = `claude${nameArg}`;
