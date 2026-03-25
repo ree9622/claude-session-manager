@@ -109,7 +109,16 @@ export function TerminalGrid({
       {/* Terminal cards — always rendered, layout changes by viewMode */}
       <div
         className={`terminal-container ${viewMode === 'grid' ? 'layout-grid' : 'layout-single'}`}
-        style={viewMode === 'grid' && gridColumns > 0 ? { gridTemplateColumns: `repeat(${gridColumns}, 1fr)` } : undefined}
+        style={viewMode === 'grid' ? (() => {
+          const cols = gridColumns > 0 ? gridColumns : undefined;
+          const visibleCount = terminals.length;
+          const effectiveCols = cols || Math.max(1, Math.floor(Math.sqrt(visibleCount)));
+          const rows = Math.ceil(visibleCount / effectiveCols);
+          return {
+            ...(cols ? { gridTemplateColumns: `repeat(${cols}, 1fr)` } : {}),
+            gridTemplateRows: `repeat(${Math.max(1, rows)}, 1fr)`,
+          };
+        })() : undefined}
       >
         {terminals.map((terminal, index) => {
           // In thumbnail/focus mode, only the focused terminal is visible
