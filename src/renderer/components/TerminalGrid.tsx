@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { TerminalView } from './TerminalView';
+import React, { useState, useRef, useEffect, useCallback, createRef } from 'react';
+import { TerminalView, TerminalViewHandle } from './TerminalView';
 import { ActiveTerminal, ViewMode } from '../types';
 import { t } from '../i18n';
 
@@ -30,6 +30,54 @@ export function TerminalGrid({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const dragRef = useRef<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const terminalRefs = useRef<Map<string, React.RefObject<TerminalViewHandle>>>(new Map());
+
+  // Ensure refs exist for all terminals
+  for (const t of terminals) {
+    if (!terminalRefs.current.has(t.ptyId)) {
+      terminalRefs.current.set(t.ptyId, createRef<TerminalViewHandle>());
+    }
+  }
+
+  // Scroll all visible terminals to bottom on view/column change
+  const scrollAllToBottom = useCallback(() => {
+    setTimeout(() => {
+      for (const t of terminals) {
+        const ref = terminalRefs.current.get(t.ptyId);
+        ref?.current?.scrollToBottom();
+        ref?.current?.fit();
+      }
+    }, 100);
+  }, [terminals]);
+
+  useEffect(() => {
+    scrollAllToBottom();
+  }, [viewMode, gridColumns]);
+
+  // Compute grid style — always calculate rows for full height
+  const getGridStyle = useCallback((): React.CSSProperties => {
+    const count = terminals.length;
+    if (count === 0) return {};
+
+    let cols: number;
+    if (gridColumns > 0) {
+      cols = gridColumns;
+    } else {
+      // Auto: calculate based on container width
+      const containerWidth = containerRef.current?.clientWidth || 800;
+      const minColWidth = 400;
+      cols = Math.max(1, Math.floor(containerWidth / minColWidth));
+      // Don't use more columns than terminals
+      cols = Math.min(cols, count);
+    }
+
+    const rows = Math.max(1, Math.ceil(count / cols));
+    return {
+      gridTemplateColumns: `repeat(${cols}, 1fr)`,
+      gridTemplateRows: `repeat(${rows}, 1fr)`,
+    };
+  }, [terminals.length, gridColumns]);
 
   if (terminals.length === 0) {
     return (
@@ -54,19 +102,16 @@ export function TerminalGrid({
   };
   const handleDragEnd = () => { dragRef.current = null; setDragIndex(null); setDropIndex(null); };
 
-  // All terminals are always rendered to preserve xterm instances.
-  // Visibility is controlled by CSS based on viewMode.
-
   return (
     <div className="terminal-area">
-      {/* Thumbnail strip — only visible in thumbnail mode */}
+      {/* Thumbnail strip */}
       {viewMode === 'thumbnail' && (
         <div className="thumbnail-strip">
           {terminals.map((term, i) => (
             <div
               key={`thumb-${term.ptyId}`}
               className={`thumbnail-item ${term.ptyId === activeFocus ? 'active' : ''}`}
-              onClick={() => onFocusTerminal(term.ptyId)}
+              onClick={() => { onFocusTerminal(term.ptyId); scrollAllToBottom(); }}
               draggable
               onDragStart={() => handleDragStart(i)}
               onDragOver={(e) => handleDragOver(e, i)}
@@ -86,14 +131,14 @@ export function TerminalGrid({
         </div>
       )}
 
-      {/* Focus tabs — only visible in focus mode */}
+      {/* Focus tabs */}
       {viewMode === 'focus' && terminals.length > 1 && (
         <div className="focus-tabs">
           {terminals.map(term => (
             <button
               key={`tab-${term.ptyId}`}
               className={`btn btn-sm ${term.ptyId === activeFocus ? 'btn-primary' : ''}`}
-              onClick={() => onFocusTerminal(term.ptyId)}
+              onClick={() => { onFocusTerminal(term.ptyId); scrollAllToBottom(); }}
             >
               <span style={{
                 display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
@@ -106,25 +151,17 @@ export function TerminalGrid({
         </div>
       )}
 
-      {/* Terminal cards — always rendered, layout changes by viewMode */}
+      {/* Terminal cards */}
       <div
+        ref={containerRef}
         className={`terminal-container ${viewMode === 'grid' ? 'layout-grid' : 'layout-single'}`}
-        style={viewMode === 'grid' ? (() => {
-          const cols = gridColumns > 0 ? gridColumns : undefined;
-          const visibleCount = terminals.length;
-          const effectiveCols = cols || Math.max(1, Math.floor(Math.sqrt(visibleCount)));
-          const rows = Math.ceil(visibleCount / effectiveCols);
-          return {
-            ...(cols ? { gridTemplateColumns: `repeat(${cols}, 1fr)` } : {}),
-            gridTemplateRows: `repeat(${Math.max(1, rows)}, 1fr)`,
-          };
-        })() : undefined}
+        style={viewMode === 'grid' ? getGridStyle() : undefined}
       >
         {terminals.map((terminal, index) => {
-          // In thumbnail/focus mode, only the focused terminal is visible
           const isVisible = viewMode === 'grid' || terminal.ptyId === activeFocus;
           const isDragging = dragIndex === index;
           const isDropTarget = dropIndex === index && dragIndex !== index;
+          const termRef = terminalRefs.current.get(terminal.ptyId)!;
 
           return (
             <div
@@ -155,6 +192,7 @@ export function TerminalGrid({
               </div>
               <div className="terminal-card-body">
                 <TerminalView
+                  ref={termRef}
                   ptyId={terminal.ptyId}
                   isVisible={isVisible}
                   isFocused={terminal.ptyId === activeFocus}

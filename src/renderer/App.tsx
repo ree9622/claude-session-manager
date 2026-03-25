@@ -225,7 +225,7 @@ export function App() {
   return (
     <>
       <div className="titlebar">
-        <h1>{t('app.title')}</h1>
+        <h1>{t('app.title')} <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 400 }}>v{APP_VERSION}</span></h1>
       </div>
       <UpdateBanner />
       <div className="app-layout">

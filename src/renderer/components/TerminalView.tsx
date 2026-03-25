@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
@@ -11,20 +11,32 @@ interface TerminalViewProps {
   onFocus: () => void;
 }
 
-export function TerminalView({ ptyId, isVisible, isFocused, onFocus }: TerminalViewProps) {
+export interface TerminalViewHandle {
+  scrollToBottom: () => void;
+  focus: () => void;
+  fit: () => void;
+}
+
+export const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(
+  ({ ptyId, isVisible, isFocused, onFocus }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
   const fitTimerRef = useRef<number | null>(null);
 
-  // Debounced fit — prevents dozens of calls during layout changes
   const debouncedFit = () => {
     if (fitTimerRef.current) cancelAnimationFrame(fitTimerRef.current);
     fitTimerRef.current = requestAnimationFrame(() => {
       try { fitAddonRef.current?.fit(); } catch {}
     });
   };
+
+  useImperativeHandle(ref, () => ({
+    scrollToBottom: () => terminalRef.current?.scrollToBottom(),
+    focus: () => terminalRef.current?.focus(),
+    fit: () => debouncedFit(),
+  }));
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -67,10 +79,7 @@ export function TerminalView({ ptyId, isVisible, isFocused, onFocus }: TerminalV
     terminal.loadAddon(fitAddon);
     terminal.open(containerRef.current);
 
-    // WebGL renderer — GPU-accelerated, much faster for 10+ terminals
-    try {
-      terminal.loadAddon(new WebglAddon());
-    } catch {}
+    try { terminal.loadAddon(new WebglAddon()); } catch {}
 
     fitAddon.fit();
 
@@ -99,7 +108,6 @@ export function TerminalView({ ptyId, isVisible, isFocused, onFocus }: TerminalV
       removeExitListener();
     };
 
-    // ResizeObserver with debounce — only fit when visible
     const observer = new ResizeObserver(debouncedFit);
     observer.observe(containerRef.current);
 
@@ -111,7 +119,6 @@ export function TerminalView({ ptyId, isVisible, isFocused, onFocus }: TerminalV
     };
   }, [ptyId]);
 
-  // Focus + scroll to bottom
   useEffect(() => {
     if (isFocused && terminalRef.current) {
       terminalRef.current.scrollToBottom();
@@ -119,7 +126,6 @@ export function TerminalView({ ptyId, isVisible, isFocused, onFocus }: TerminalV
     }
   }, [isFocused]);
 
-  // Refit when becoming visible
   useEffect(() => {
     if (isVisible) debouncedFit();
   }, [isVisible]);
@@ -132,11 +138,19 @@ export function TerminalView({ ptyId, isVisible, isFocused, onFocus }: TerminalV
     onFocus();
   };
 
+  // Prevent spacebar from scrolling the page
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === ' ') {
+      e.preventDefault();
+    }
+  };
+
   return (
     <div
       ref={containerRef}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       style={{ width: '100%', height: '100%', overflow: 'hidden' }}
     />
   );
-}
+});
