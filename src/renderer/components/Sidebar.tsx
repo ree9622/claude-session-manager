@@ -17,6 +17,7 @@ interface SidebarProps {
   onNewSession: () => void;
   onGenerateName: (session: SessionInfo) => void;
   onDeleteSession: (session: SessionInfo) => void;
+  onRefresh: () => void;
   onCleanup: (days: number) => Promise<number>;
   loading: boolean;
 }
@@ -107,7 +108,7 @@ function SessionItem({
 export function Sidebar({
   sessions, selectedSessions, collapsed, onToggleCollapse,
   onToggleSelect, onResumeSession, onBulkResume, onSearch,
-  onNewSession, onGenerateName, onDeleteSession, onCleanup, loading,
+  onNewSession, onGenerateName, onDeleteSession, onRefresh, onCleanup, loading,
 }: SidebarProps) {
   const [searchValue, setSearchValue] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('time');
@@ -159,6 +160,7 @@ export function Sidebar({
             onChange={e => { setSearchValue(e.target.value); onSearch(e.target.value); }}
             style={{ flex: 1 }}
           />
+          <button className="btn-icon" onClick={onRefresh} title={t('sidebar.refresh')}>↻</button>
           <button className="btn-icon sidebar-toggle" onClick={onToggleCollapse} title={t('sidebar.collapse')}>◀</button>
         </div>
         <div className="sidebar-actions">

@@ -14,6 +14,7 @@ const translations = {
   'sidebar.cleanupResult': { en: '{n} sessions cleaned (30+ days)', ko: '{n}개 세션 정리됨 (30일 이상)' },
   'sidebar.loading': { en: 'Loading...', ko: '불러오는 중...' },
   'sidebar.noSessions': { en: 'No sessions', ko: '세션이 없습니다' },
+  'sidebar.refresh': { en: 'Refresh sessions', ko: '세션 새로고침' },
   'sidebar.collapse': { en: 'Collapse sidebar', ko: '사이드바 접기' },
   'sidebar.expand': { en: 'Expand sidebar', ko: '사이드바 펼치기' },
 

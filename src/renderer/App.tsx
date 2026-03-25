@@ -301,6 +301,7 @@ export function App() {
           onNewSession={() => setShowNewSession(true)}
           onGenerateName={handleGenerateName}
           onDeleteSession={handleDeleteSession}
+          onRefresh={loadSessions}
           onCleanup={handleCleanup}
           loading={loading}
         />
