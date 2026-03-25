@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
 import { TerminalGrid } from './components/TerminalGrid';
@@ -60,31 +60,59 @@ export function App() {
     });
   }, []);
 
+  // "User intent" — the sessions the user wants open, independent of PTY state.
+  // This is what gets saved to disk. PTY exit events do NOT affect this.
+  const savedSessionsRef = useRef<Array<{ sessionId?: string; name: string; cwd: string }>>([]);
+
+  const saveState = useCallback(() => {
+    window.api.state.save(savedSessionsRef.current);
+  }, []);
+
+  // Track user intent: add a session to saved list
+  const trackOpen = useCallback((t: { sessionId?: string; name: string; cwd: string }) => {
+    if (!t.sessionId) return; // Don't save sessions without ID
+    savedSessionsRef.current = [
+      ...savedSessionsRef.current.filter(s => s.sessionId !== t.sessionId),
+      t,
+    ];
+    saveState();
+  }, [saveState]);
+
+  // Track user intent: remove a session from saved list
+  const trackClose = useCallback((sessionId?: string) => {
+    if (!sessionId) return;
+    savedSessionsRef.current = savedSessionsRef.current.filter(s => s.sessionId !== sessionId);
+    saveState();
+  }, [saveState]);
+
+  // Track user intent: clear all
+  const trackCloseAll = useCallback(() => {
+    savedSessionsRef.current = [];
+    saveState();
+  }, [saveState]);
+
+  // Periodic backup save (every 10s) — safety net for crashes
+  useEffect(() => {
+    const interval = setInterval(saveState, 10000);
+    return () => clearInterval(interval);
+  }, [saveState]);
+
   useEffect(() => {
     loadSessions();
     restoreSavedTerminals();
   }, []);
 
-  // Auto-save state whenever activeTerminals changes (skip during restore)
-  useEffect(() => {
-    if (restoring) return;
-    const toSave = activeTerminals
-      .filter(t => t.status === 'running')
-      .map(t => ({ sessionId: t.sessionId, name: t.name, cwd: t.cwd }));
-    window.api.state.save(toSave);
-  }, [activeTerminals, restoring]);
-
   const restoreSavedTerminals = async () => {
     try {
       const saved = await window.api.state.load();
-      if (saved.length === 0) return;
-      setRestoring(true);
-      setRestoreCount(saved.length);
-
-      // Only restore terminals that have a sessionId (can be resumed)
-      // Skip terminals without sessionId — they were new sessions, not resumable
       const resumable = saved.filter(t => t.sessionId);
+      if (resumable.length === 0) return;
+
+      setRestoring(true);
       setRestoreCount(resumable.length);
+
+      // Preserve saved state — don't let it get overwritten during restore
+      savedSessionsRef.current = resumable;
 
       for (const t of resumable) {
         const ptyId = await window.api.pty.create({
@@ -151,7 +179,8 @@ export function App() {
       cwd: session.cwd,
       status: 'running',
     }]);
-  }, [activeTerminals]);
+    trackOpen({ sessionId: session.id, name, cwd: session.cwd });
+  }, [activeTerminals, trackOpen]);
 
   const handleBulkResume = useCallback(async () => {
     const toResume = sessions.filter(s => selectedSessions.has(s.id));
@@ -173,16 +202,19 @@ export function App() {
   }, []);
 
   const handleKillTerminal = useCallback(async (ptyId: string) => {
+    const terminal = activeTerminals.find(t => t.ptyId === ptyId);
     await window.api.pty.kill(ptyId);
     setActiveTerminals(prev => prev.filter(t => t.ptyId !== ptyId));
     if (focusedTerminal === ptyId) setFocusedTerminal(null);
-  }, [focusedTerminal]);
+    trackClose(terminal?.sessionId);
+  }, [focusedTerminal, activeTerminals, trackClose]);
 
   const handleCloseAll = useCallback(async () => {
     await window.api.pty.killAll();
     setActiveTerminals([]);
     setFocusedTerminal(null);
-  }, []);
+    trackCloseAll();
+  }, [trackCloseAll]);
 
   const handleTerminalExit = useCallback((ptyId: string) => {
     setActiveTerminals(prev =>
@@ -217,6 +249,7 @@ export function App() {
         toKill.forEach(t => window.api.pty.kill(t.ptyId));
         return prev.filter(t => t.sessionId !== session.id);
       });
+      trackClose(session.id);
     }
   }, []);
 
