@@ -12,11 +12,32 @@ export function App() {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [activeTerminals, setActiveTerminals] = useState<ActiveTerminal[]>([]);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewModeRaw] = useState<ViewMode>(() => {
+    try { return (localStorage.getItem('viewMode') as ViewMode) || 'grid'; } catch { return 'grid'; }
+  });
   const [focusedTerminal, setFocusedTerminal] = useState<string | null>(null);
   const [showNewSession, setShowNewSession] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [gridColumns, setGridColumns] = useState(0); // 0 = auto
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('sidebarCollapsed') === 'true'; } catch { return false; }
+  });
+  const [gridColumns, setGridColumns] = useState(() => {
+    try { return parseInt(localStorage.getItem('gridColumns') || '0', 10); } catch { return 0; }
+  });
+  const setViewMode = useCallback((mode: ViewMode) => {
+    setViewModeRaw(mode);
+    try { localStorage.setItem('viewMode', mode); } catch {}
+  }, []);
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed(prev => {
+      const next = !prev;
+      try { localStorage.setItem('sidebarCollapsed', String(next)); } catch {}
+      return next;
+    });
+  }, []);
+  const changeGridColumns = useCallback((cols: number) => {
+    setGridColumns(cols);
+    try { localStorage.setItem('gridColumns', String(cols)); } catch {}
+  }, []);
   const [lang, setLangState] = useState(getLang());
   const [loading, setLoading] = useState(true);
   const [restoring, setRestoring] = useState(false);
@@ -233,7 +254,7 @@ export function App() {
           sessions={sessions}
           selectedSessions={selectedSessions}
           collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed(p => !p)}
+          onToggleCollapse={toggleSidebar}
           onToggleSelect={toggleSessionSelection}
           onResumeSession={handleResumeSession}
           onBulkResume={handleBulkResume}
@@ -251,8 +272,8 @@ export function App() {
             activeCount={activeTerminals.length}
             sidebarCollapsed={sidebarCollapsed}
             gridColumns={gridColumns}
-            onGridColumnsChange={setGridColumns}
-            onToggleSidebar={() => setSidebarCollapsed(p => !p)}
+            onGridColumnsChange={changeGridColumns}
+            onToggleSidebar={toggleSidebar}
             onLangChange={handleLangChange}
             onCloseAll={handleCloseAll}
             onNewSession={() => setShowNewSession(true)}
