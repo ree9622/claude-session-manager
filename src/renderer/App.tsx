@@ -67,6 +67,13 @@ export function App() {
     });
   }, []);
 
+  // Auto-refresh sidebar when session-names.json changes (e.g., /name-session skill)
+  useEffect(() => {
+    window.api.onNamesChanged?.(() => {
+      loadSessions();
+    });
+  }, []);
+
   // First run notice
   useEffect(() => {
     window.api.onFirstRun?.(() => {

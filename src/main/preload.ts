@@ -78,7 +78,10 @@ contextBridge.exposeInMainWorld('api', {
 
   // Naming
   nameActiveSessions: (sessionIds: string[]) =>
-    ipcRenderer.invoke('sessions:name-active', sessionIds) as Promise<number>,
+    ipcRenderer.invoke('sessions:name-active', sessionIds) as Promise<Record<string, string>>,
+  onNamesChanged: (callback: () => void) => {
+    ipcRenderer.on('names:changed', () => callback());
+  },
   onNamingStart: (callback: (data: { total: number }) => void) => {
     ipcRenderer.on('naming:start', (_e, data) => callback(data));
   },

@@ -1,6 +1,8 @@
 import { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage, dialog } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
+import fs from 'fs';
+import os from 'os';
 import { PtyManager } from './pty-manager';
 import { SessionParser } from './session-parser';
 import { stateStore, SavedTerminal } from './state-store';
@@ -124,6 +126,18 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../index.html'));
   }
 
+  // Watch session-names.json — auto-refresh sidebar when /name-session skill writes to it
+  const namesFile = path.join(os.homedir(), '.claude', 'session-names.json');
+  let namesDebounce: NodeJS.Timeout | null = null;
+  const namesWatcher = fs.watch(namesFile, { persistent: false }, () => {
+    if (namesDebounce) clearTimeout(namesDebounce);
+    namesDebounce = setTimeout(() => {
+      logger.info('watcher', 'session-names.json changed, notifying renderer');
+      mainWindow?.webContents.send('names:changed');
+    }, 500);
+  });
+  mainWindow.on('closed', () => namesWatcher.close());
+
   // Close behavior: naming + tray/quit
   mainWindow.on('close', (e) => {
     if (isQuitting) return; // Already in quit flow, let it close
@@ -163,12 +177,20 @@ ipcMain.handle('sessions:delete-old', async (_e, days: number) => sessionParser.
 ipcMain.handle('sessions:toggle-favorite', async (_e, id: string) => sessionParser.toggleFavorite(id));
 ipcMain.handle('sessions:toggle-hidden', async (_e, id: string) => sessionParser.toggleHidden(id));
 ipcMain.handle('sessions:name-active', async (_e, sessionIds: string[]) => {
+  logger.info('ipc', `sessions:name-active called, ${sessionIds.length} sessions`);
   mainWindow?.webContents.send('naming:start', { total: sessionIds.length, reason: 'manual' });
-  const nameMap = await sessionParser.nameUnnamedSessions(sessionIds, (done, total, name) => {
-    mainWindow?.webContents.send('naming:progress', { done, total, name });
-  }, true);
-  mainWindow?.webContents.send('naming:done');
-  return nameMap;  // { sessionId: name } — renderer updates terminal tabs
+  try {
+    const nameMap = await sessionParser.nameUnnamedSessions(sessionIds, (done, total, name) => {
+      mainWindow?.webContents.send('naming:progress', { done, total, name });
+    }, true);
+    logger.info('ipc', `sessions:name-active done, ${Object.keys(nameMap).length} named`);
+    mainWindow?.webContents.send('naming:done');
+    return nameMap;
+  } catch (err) {
+    logger.error('ipc', 'sessions:name-active failed', String(err));
+    mainWindow?.webContents.send('naming:done');
+    return {};
+  }
 });
 
 // PTY management
