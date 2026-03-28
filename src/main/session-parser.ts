@@ -353,22 +353,28 @@ ${userMessages}`;
     const total = targets.length;
     logger.info('session', `Naming ${total} sessions (force=${force})...`);
 
-    let named = 0;
-    for (const sessionId of targets) {
-      const projectDir = this.findProjectDir(sessionId);
-      if (!projectDir) { named++; onProgress?.(named, total, ''); continue; }
+    let done = 0;
+    const results = await Promise.allSettled(
+      targets.map(async (sessionId) => {
+        const projectDir = this.findProjectDir(sessionId);
+        if (!projectDir) {
+          done++;
+          onProgress?.(done, total, '');
+          return;
+        }
+        try {
+          const name = await this.generateSessionName(sessionId, projectDir);
+          done++;
+          onProgress?.(done, total, name);
+        } catch (err) {
+          logger.error('session', `Failed to name ${sessionId.slice(0, 8)}`, String(err));
+          done++;
+          onProgress?.(done, total, '');
+        }
+      })
+    );
 
-      try {
-        const name = await this.generateSessionName(sessionId, projectDir);
-        named++;
-        onProgress?.(named, total, name);
-      } catch (err) {
-        logger.error('session', `Failed to name ${sessionId.slice(0, 8)}`, err);
-        named++;
-        onProgress?.(named, total, '');
-      }
-    }
-
+    const named = results.filter(r => r.status === 'fulfilled').length;
     logger.info('session', `Named ${named}/${total} sessions`);
     return named;
   }
