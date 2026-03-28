@@ -2,6 +2,7 @@ import * as pty from 'node-pty';
 import crypto from 'crypto';
 import os from 'os';
 import fs from 'fs';
+import { execFileSync } from 'child_process';
 import { logger } from './logger';
 
 interface PtyInstance {
@@ -139,14 +140,27 @@ export class PtyManager {
   kill(id: string) {
     const instance = this.instances.get(id);
     if (instance && instance.status === 'running') {
-      logger.info('pty', `Killing PTY`, { id: id.slice(0, 8) });
-      instance.process.kill();
+      const pid = instance.process.pid;
+      logger.info('pty', `Killing PTY`, { id: id.slice(0, 8), pid });
+
+      // On Windows, pty.kill() only kills the shell, not child processes (claude, node, etc.)
+      // Kill the entire process tree via taskkill /T
+      if (process.platform === 'win32' && pid) {
+        try {
+          execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore', timeout: 5000 });
+        } catch {
+          // Process may already be dead
+        }
+      } else {
+        instance.process.kill();
+      }
       instance.status = 'exited';
     }
     this.instances.delete(id);
   }
 
   killAll() {
+    logger.info('pty', `Killing all ${this.instances.size} PTY instances`);
     for (const [id] of this.instances) {
       this.kill(id);
     }

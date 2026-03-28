@@ -230,7 +230,7 @@ ipcMain.handle('updater:install', async () => autoUpdater.quitAndInstall());
 // Single instance lock — prevent multiple app windows
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
-  app.quit();
+  app.exit(0); // exit(), not quit() — skip before-quit to avoid hang
 } else {
   app.on('second-instance', () => {
     // Someone tried to open a second instance — focus existing window
@@ -248,37 +248,58 @@ if (!gotLock) {
     setupAutoUpdater();
   });
 
-  let namingDone = false;
+  let quitPhase: 'idle' | 'naming' | 'ready' = 'idle';
+
+  function forceQuit() {
+    logger.info('app', 'Force quitting');
+    ptyManager.killAll();
+    quitPhase = 'ready';
+    app.quit();
+  }
 
   app.on('before-quit', (e) => {
-    if (!namingDone) {
-      e.preventDefault();
-      isQuitting = true;
-      logger.info('app', 'before-quit: naming unnamed sessions...');
+    isQuitting = true;
 
-      const instances = ptyManager.list();
-      const sessionIds = instances
-        .filter(i => i.sessionId && i.status === 'running')
-        .map(i => i.sessionId!);
-
-      if (sessionIds.length === 0) {
-        namingDone = true;
-        ptyManager.killAll();
-        app.quit();
-        return;
-      }
-
-      sessionParser.nameUnnamedSessions(sessionIds)
-        .catch(err => logger.error('app', 'Session naming failed', String(err)))
-        .finally(() => {
-          namingDone = true;
-          ptyManager.killAll();
-          app.quit();
-        });
-    } else {
-      logger.info('app', 'before-quit: naming done, quitting');
+    if (quitPhase === 'ready') {
+      // Naming done or skipped — allow quit, just clean up
       ptyManager.killAll();
+      return;
     }
+
+    if (quitPhase === 'naming') {
+      // Already naming — don't re-enter, just wait
+      e.preventDefault();
+      return;
+    }
+
+    // First quit attempt — try naming
+    e.preventDefault();
+    quitPhase = 'naming';
+
+    const instances = ptyManager.list();
+    const sessionIds = instances
+      .filter(i => i.sessionId && i.status === 'running')
+      .map(i => i.sessionId!);
+
+    if (sessionIds.length === 0) {
+      forceQuit();
+      return;
+    }
+
+    logger.info('app', `Naming ${sessionIds.length} sessions before quit...`);
+
+    // Hard timeout — quit even if naming hangs
+    const timeout = setTimeout(() => {
+      logger.warn('app', 'Naming timeout (15s), force quitting');
+      forceQuit();
+    }, 15000);
+
+    sessionParser.nameUnnamedSessions(sessionIds)
+      .catch(err => logger.error('app', 'Session naming failed', String(err)))
+      .finally(() => {
+        clearTimeout(timeout);
+        forceQuit();
+      });
   });
 
   app.on('window-all-closed', () => {
