@@ -50,20 +50,20 @@ export function App() {
     window.api.settings?.set('lang', next);
   }, [lang]);
 
-  // Naming overlay on quit
-  const [namingState, setNamingState] = useState<{ active: boolean; done: number; total: number; name: string }>({
-    active: false, done: 0, total: 0, name: '',
+  // Naming overlay
+  const [namingState, setNamingState] = useState<{ active: boolean; done: number; total: number; name: string; reason: string }>({
+    active: false, done: 0, total: 0, name: '', reason: '',
   });
 
   useEffect(() => {
-    window.api.onNamingStart?.((data: { total: number }) => {
-      setNamingState({ active: true, done: 0, total: data.total, name: '' });
+    window.api.onNamingStart?.((data: { total: number; reason?: string }) => {
+      setNamingState({ active: true, done: 0, total: data.total, name: '', reason: data.reason || 'manual' });
     });
     window.api.onNamingProgress?.((data: { done: number; total: number; name: string }) => {
-      setNamingState({ active: true, done: data.done, total: data.total, name: data.name });
+      setNamingState(prev => ({ ...prev, done: data.done, total: data.total, name: data.name }));
     });
     window.api.onNamingDone?.(() => {
-      setNamingState({ active: false, done: 0, total: 0, name: '' });
+      setNamingState({ active: false, done: 0, total: 0, name: '', reason: '' });
     });
   }, []);
 
@@ -406,7 +406,7 @@ export function App() {
         <div className="naming-overlay">
           <div className="naming-content">
             <div className="naming-spinner" />
-            <div className="naming-title">{t('naming.title')}</div>
+            <div className="naming-title">{t(namingState.reason === 'quit' ? 'naming.titleQuit' : 'naming.title')}</div>
             <div className="naming-progress">{namingState.done} / {namingState.total}</div>
             {namingState.name && <div className="naming-current">{namingState.name}</div>}
           </div>

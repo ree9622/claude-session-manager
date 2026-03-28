@@ -163,7 +163,7 @@ ipcMain.handle('sessions:delete-old', async (_e, days: number) => sessionParser.
 ipcMain.handle('sessions:toggle-favorite', async (_e, id: string) => sessionParser.toggleFavorite(id));
 ipcMain.handle('sessions:toggle-hidden', async (_e, id: string) => sessionParser.toggleHidden(id));
 ipcMain.handle('sessions:name-active', async (_e, sessionIds: string[]) => {
-  mainWindow?.webContents.send('naming:start', { total: sessionIds.length });
+  mainWindow?.webContents.send('naming:start', { total: sessionIds.length, reason: 'manual' });
   const result = await sessionParser.nameUnnamedSessions(sessionIds, (done, total, name) => {
     mainWindow?.webContents.send('naming:progress', { done, total, name });
   });
@@ -304,7 +304,7 @@ if (!gotLock) {
     // Show window with naming overlay
     if (mainWindow) {
       if (!mainWindow.isVisible()) mainWindow.show();
-      mainWindow.webContents.send('naming:start', { total: sessionIds.length });
+      mainWindow.webContents.send('naming:start', { total: sessionIds.length, reason: 'quit' });
     }
 
     logger.info('app', `Naming ${sessionIds.length} sessions before quit...`);
