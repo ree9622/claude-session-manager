@@ -30,6 +30,7 @@ const translations = {
   'session.favorite': { en: 'Favorite', ko: '즐겨찾기' },
   'session.hide': { en: 'Hide', ko: '숨기기' },
   'sidebar.showHidden': { en: 'Hidden', ko: '숨긴 항목' },
+  'sidebar.favorites': { en: 'Favorites', ko: '즐겨찾기' },
 
   // Time
   'time.now': { en: 'Just now', ko: '방금 전' },
@@ -89,6 +90,19 @@ const translations = {
   // Naming
   'naming.title': { en: 'Generating session names...', ko: '세션 이름 생성 중...' },
   'naming.titleQuit': { en: 'Naming sessions before closing...', ko: '종료 전 세션 이름 생성 중...' },
+
+  // Settings
+  'settings.title': { en: 'Settings', ko: '설정' },
+  'settings.fontSize': { en: 'Font size', ko: '폰트 크기' },
+  'settings.scrollback': { en: 'Scrollback lines', ko: '스크롤백 줄 수' },
+  'settings.notifications': { en: 'Task completion notifications', ko: '작업 완료 알림' },
+  'settings.sidebarWidth': { en: 'Sidebar width', ko: '사이드바 너비' },
+  'settings.reset': { en: 'Reset to defaults', ko: '기본값으로 초기화' },
+
+  // Pin
+  'session.pin': { en: 'Pin', ko: '고정' },
+  'session.unpin': { en: 'Unpin', ko: '고정 해제' },
+  'session.pinned': { en: 'Pinned', ko: '고정됨' },
 } as const;
 
 export type TranslationKey = keyof typeof translations;

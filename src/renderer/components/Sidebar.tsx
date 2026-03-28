@@ -10,6 +10,7 @@ interface SidebarProps {
   selectedSessions: Set<string>;
   activeSessionIds: Set<string>;
   collapsed: boolean;
+  style?: React.CSSProperties;
   onToggleCollapse: () => void;
   onToggleSelect: (id: string) => void;
   onResumeSession: (session: SessionInfo) => void;
@@ -20,6 +21,7 @@ interface SidebarProps {
   onDeleteSession: (session: SessionInfo) => void;
   onToggleFavorite: (session: SessionInfo) => void;
   onToggleHidden: (session: SessionInfo) => void;
+  onTogglePinned: (session: SessionInfo) => void;
   onRefresh: () => void;
   onCleanup: (days: number) => Promise<number>;
   loading: boolean;
@@ -55,7 +57,7 @@ function SessionItem({
   session: SessionInfo; isSelected: boolean; isExpanded: boolean; isActive: boolean;
   onToggleSelect: () => void; onToggleExpand: () => void;
   onResume: () => void; onGenerateName: () => void; onDelete: () => void;
-  onToggleFavorite: () => void; onToggleHidden: () => void;
+  onToggleFavorite: () => void; onToggleHidden: () => void; onTogglePinned: () => void;
   showProject: boolean;
 }) {
   return (
@@ -63,7 +65,7 @@ function SessionItem({
       <div className="session-item-row" onClick={onToggleSelect}>
         <div className={`checkbox ${isSelected ? 'checked' : ''}`} />
         <div className="session-item-summary">
-          <div className="session-name">{isActive ? '● ' : ''}{session.favorite ? '★ ' : ''}{session.name || session.id.slice(0, 8)}</div>
+          <div className="session-name">{isActive ? '● ' : ''}{session.pinned ? '📌 ' : ''}{session.favorite ? '★ ' : ''}{session.name || session.id.slice(0, 8)}</div>
           <div className="session-prompt">{session.firstPrompt}</div>
           {showProject && (
             <div className="session-item-meta">
@@ -71,6 +73,20 @@ function SessionItem({
             </div>
           )}
         </div>
+        <button
+          className={`pin-toggle ${session.pinned ? 'is-pinned' : ''}`}
+          onClick={e => { e.stopPropagation(); onTogglePinned(); }}
+          title={session.pinned ? t('session.unpin') : t('session.pin')}
+        >
+          📌
+        </button>
+        <button
+          className={`favorite-toggle ${session.favorite ? 'is-favorite' : ''}`}
+          onClick={e => { e.stopPropagation(); onToggleFavorite(); }}
+          title={t('session.favorite')}
+        >
+          {session.favorite ? '★' : '☆'}
+        </button>
         <div className="session-item-actions" onClick={e => e.stopPropagation()}>
           <button className="btn btn-sm session-action-btn" onClick={onResume}>{t('session.open')}</button>
           <button className="btn btn-sm session-action-btn" onClick={onToggleExpand}>{isExpanded ? '−' : '+'}</button>
@@ -103,6 +119,9 @@ function SessionItem({
             <button className="btn btn-sm" onClick={onToggleFavorite}>
               {session.favorite ? '★' : '☆'} {t('session.favorite')}
             </button>
+            <button className="btn btn-sm" onClick={onTogglePinned}>
+              📌 {session.pinned ? t('session.unpin') : t('session.pin')}
+            </button>
             <button className="btn btn-sm" onClick={onToggleHidden}>
               {t('session.hide')}
             </button>
@@ -117,29 +136,34 @@ function SessionItem({
 }
 
 export function Sidebar({
-  sessions, selectedSessions, activeSessionIds, collapsed, onToggleCollapse,
+  sessions, selectedSessions, activeSessionIds, collapsed, style, onToggleCollapse,
   onToggleSelect, onResumeSession, onBulkResume, onSearch,
-  onNewSession, onGenerateName, onDeleteSession, onToggleFavorite, onToggleHidden, onRefresh, onCleanup, loading,
+  onNewSession, onGenerateName, onDeleteSession, onToggleFavorite, onToggleHidden, onTogglePinned, onRefresh, onCleanup, loading,
 }: SidebarProps) {
   const [searchValue, setSearchValue] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('time');
   const [showHidden, setShowHidden] = useState(false);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
 
-  // Filter hidden, sort favorites first
+  // Filter hidden, filter favorites, sort favorites first
   const filteredSessions = useMemo(() => {
     let list = showHidden ? sessions : sessions.filter(s => !s.hidden);
-    // Favorites first
+    if (showFavoritesOnly) list = list.filter(s => s.favorite);
+    // Pinned first, then favorites
     list = [...list].sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
       if (a.favorite && !b.favorite) return -1;
       if (!a.favorite && b.favorite) return 1;
       return 0;
     });
     return list;
-  }, [sessions, showHidden]);
+  }, [sessions, showHidden, showFavoritesOnly]);
 
   const hiddenCount = useMemo(() => sessions.filter(s => s.hidden).length, [sessions]);
+  const favoriteCount = useMemo(() => sessions.filter(s => s.favorite).length, [sessions]);
 
   const groupedByProject = useMemo(() => {
     const groups = new Map<string, SessionInfo[]>();
@@ -175,7 +199,7 @@ export function Sidebar({
   if (collapsed) return <div className="sidebar sidebar-collapsed" />;
 
   return (
-    <div className="sidebar">
+    <div className="sidebar" style={style}>
       <div className="sidebar-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <input
@@ -199,6 +223,11 @@ export function Sidebar({
             <button className={`sort-btn ${sortMode === 'time' ? 'active' : ''}`} onClick={() => setSortMode('time')}>{t('sidebar.sortTime')}</button>
             <button className={`sort-btn ${sortMode === 'project' ? 'active' : ''}`} onClick={() => setSortMode('project')}>{t('sidebar.sortProject')}</button>
           </div>
+          {favoriteCount > 0 && (
+            <button className={`btn btn-sm ${showFavoritesOnly ? 'btn-favorite-active' : ''}`} onClick={() => setShowFavoritesOnly(p => !p)}>
+              ★ {t('sidebar.favorites')} ({favoriteCount})
+            </button>
+          )}
           <button className="btn btn-sm btn-danger" onClick={async () => {
             const deleted = await onCleanup(30);
             alert(t('sidebar.cleanupResult', { n: deleted }));
@@ -242,6 +271,7 @@ export function Sidebar({
                         onDelete={() => onDeleteSession(session)}
                         onToggleFavorite={() => onToggleFavorite(session)}
                         onToggleHidden={() => onToggleHidden(session)}
+                        onTogglePinned={() => onTogglePinned(session)}
                         showProject={sortMode === 'time'}
                       />
                     ))}

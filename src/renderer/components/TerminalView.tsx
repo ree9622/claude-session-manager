@@ -8,6 +8,10 @@ interface TerminalViewProps {
   ptyId: string;
   isVisible: boolean;
   isFocused: boolean;
+  fontSize: number;
+  scrollback: number;
+  notificationsEnabled: boolean;
+  terminalName: string;
   onFocus: () => void;
 }
 
@@ -18,7 +22,7 @@ export interface TerminalViewHandle {
 }
 
 export const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(
-  ({ ptyId, isVisible, isFocused, onFocus }, ref) => {
+  ({ ptyId, isVisible, isFocused, fontSize, scrollback, notificationsEnabled, terminalName, onFocus }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -65,11 +69,11 @@ export const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(
         brightCyan: '#67e8f9',
         brightWhite: '#f9fafb',
       },
-      fontSize: 13,
+      fontSize: fontSize,
       fontFamily: "'Cascadia Code', 'Consolas', 'Courier New', monospace",
       cursorBlink: true,
       cursorStyle: 'bar',
-      scrollback: 3000,
+      scrollback: scrollback,
       allowProposedApi: true,
       fastScrollModifier: 'alt',
       smoothScrollDuration: 0,
@@ -83,16 +87,58 @@ export const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(
 
     fitAddon.fit();
 
+    // Auto-copy on selection
+    terminal.onSelectionChange(() => {
+      const selection = terminal.getSelection();
+      if (selection) {
+        navigator.clipboard.writeText(selection).catch(() => {});
+      }
+    });
+
+    // Ctrl+Shift+C = copy, Ctrl+Shift+V = paste
+    terminal.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.type === 'keydown') {
+        if (e.code === 'KeyC') {
+          const sel = terminal.getSelection();
+          if (sel) navigator.clipboard.writeText(sel).catch(() => {});
+          return false;
+        }
+        if (e.code === 'KeyV') {
+          navigator.clipboard.readText().then(text => {
+            if (text) window.api.pty.write(ptyId, text);
+          }).catch(() => {});
+          return false;
+        }
+      }
+      return true;
+    });
+
+    // Task completion notification: detect silence after output
+    let lastOutputTime = 0;
+    let notifyTimer: ReturnType<typeof setTimeout> | null = null;
+
     const removeDataListener = window.api.pty.onData(ptyId, (data) => {
       terminal.write(data);
-      // Auto-scroll to bottom when new output arrives
-      // Only if viewport is near bottom (within 5 lines) to not fight manual scroll-up
       const buf = terminal.buffer.active;
       const viewportBottom = buf.viewportY + terminal.rows;
       const totalLines = buf.length;
       if (totalLines - viewportBottom < 5) {
         terminal.scrollToBottom();
       }
+
+      // Notification: 3s of silence after output = task likely done
+      lastOutputTime = Date.now();
+      if (notifyTimer) clearTimeout(notifyTimer);
+      notifyTimer = setTimeout(() => {
+        if (Date.now() - lastOutputTime >= 2900 && !document.hasFocus()) {
+          try {
+            new Notification('Claude Session Manager', {
+              body: `${terminalName}: task completed`,
+              silent: false,
+            });
+          } catch {}
+        }
+      }, 3000);
     });
 
     const removeExitListener = window.api.pty.onExit(ptyId, () => {
@@ -133,6 +179,13 @@ export const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(
       terminalRef.current.focus();
     }
   }, [isFocused]);
+
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.options.fontSize = fontSize;
+      debouncedFit();
+    }
+  }, [fontSize]);
 
   useEffect(() => {
     if (isVisible) debouncedFit();

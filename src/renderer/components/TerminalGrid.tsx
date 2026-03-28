@@ -8,10 +8,14 @@ interface TerminalGridProps {
   viewMode: ViewMode;
   focusedTerminal: string | null;
   gridColumns: number;
+  fontSize: number;
+  scrollback: number;
+  notificationsEnabled: boolean;
   onFocusTerminal: (ptyId: string) => void;
   onKillTerminal: (ptyId: string) => void;
   onTerminalExit: (ptyId: string) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
+  onRenameTerminal: (ptyId: string, newName: string) => void;
   onViewModeChange: (mode: ViewMode) => void;
   onNewSession: () => void;
 }
@@ -23,9 +27,13 @@ export function TerminalGrid({
   onFocusTerminal,
   onKillTerminal,
   onReorder,
+  onRenameTerminal,
   onViewModeChange,
   onNewSession,
   gridColumns,
+  fontSize,
+  scrollback,
+  notificationsEnabled,
 }: TerminalGridProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
@@ -33,7 +41,15 @@ export function TerminalGrid({
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRefs = useRef<Map<string, React.RefObject<TerminalViewHandle>>>(new Map());
 
-  // Ensure refs exist for all terminals
+  // Inline rename state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+
+  // Ensure refs exist for all terminals, clean up stale ones
+  const currentIds = new Set(terminals.map(t => t.ptyId));
+  for (const id of terminalRefs.current.keys()) {
+    if (!currentIds.has(id)) terminalRefs.current.delete(id);
+  }
   for (const t of terminals) {
     if (!terminalRefs.current.has(t.ptyId)) {
       terminalRefs.current.set(t.ptyId, createRef<TerminalViewHandle>());
@@ -182,9 +198,32 @@ export function TerminalGrid({
             >
               <div className="terminal-card-header">
                 <div className="terminal-card-title">
-                  {viewMode === 'grid' && <span className="drag-handle">⠿</span>}
+                  {viewMode === 'grid' && <span className="drag-handle">&#x2807;</span>}
                   <span className={`status-dot ${terminal.status === 'exited' ? 'exited' : ''}`} />
-                  <span>{terminal.name}</span>
+                  {editingId === terminal.ptyId ? (
+                    <input
+                      className="terminal-rename-input"
+                      value={editValue}
+                      onChange={e => setEditValue(e.target.value)}
+                      onBlur={() => {
+                        if (editValue.trim()) onRenameTerminal(terminal.ptyId, editValue.trim());
+                        setEditingId(null);
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          if (editValue.trim()) onRenameTerminal(terminal.ptyId, editValue.trim());
+                          setEditingId(null);
+                        }
+                        if (e.key === 'Escape') setEditingId(null);
+                      }}
+                      autoFocus
+                      onClick={e => e.stopPropagation()}
+                    />
+                  ) : (
+                    <span onDoubleClick={() => { setEditingId(terminal.ptyId); setEditValue(terminal.name); }}>
+                      {terminal.name}
+                    </span>
+                  )}
                   <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>
                     {terminal.cwd.split('\\').slice(-2).join('/')}
                   </span>
@@ -202,6 +241,10 @@ export function TerminalGrid({
                   ptyId={terminal.ptyId}
                   isVisible={isVisible}
                   isFocused={terminal.ptyId === activeFocus}
+                  fontSize={fontSize}
+                  scrollback={scrollback}
+                  notificationsEnabled={notificationsEnabled}
+                  terminalName={terminal.name}
                   onFocus={() => onFocusTerminal(terminal.ptyId)}
                 />
               </div>

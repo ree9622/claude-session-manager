@@ -3,6 +3,7 @@ import { Sidebar } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
 import { TerminalGrid } from './components/TerminalGrid';
 import { NewSessionModal } from './components/NewSessionModal';
+import { SettingsModal } from './components/SettingsModal';
 import { UpdateBanner } from './components/UpdateBanner';
 import { TerminalRestoringSkeleton } from './components/Skeleton';
 import { SessionInfo, ActiveTerminal, ViewMode } from './types';
@@ -17,12 +18,60 @@ export function App() {
   });
   const [focusedTerminal, setFocusedTerminal] = useState<string | null>(null);
   const [showNewSession, setShowNewSession] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try { return localStorage.getItem('sidebarCollapsed') === 'true'; } catch { return false; }
   });
   const [gridColumns, setGridColumns] = useState(() => {
     try { return parseInt(localStorage.getItem('gridColumns') || '0', 10); } catch { return 0; }
   });
+
+  // Settings-driven state
+  const [fontSize, setFontSize] = useState(13);
+  const [scrollback, setScrollback] = useState(5000);
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    try { return parseInt(localStorage.getItem('sidebarWidth') || '320', 10); } catch { return 320; }
+  });
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+  // Load settings on mount
+  useEffect(() => {
+    window.api.settings.getAll().then((all: any) => {
+      if (all.fontSize) setFontSize(all.fontSize);
+      if (all.scrollback) setScrollback(all.scrollback);
+      if (all.sidebarWidth) setSidebarWidth(all.sidebarWidth);
+      if (all.notifications !== undefined) setNotificationsEnabled(all.notifications);
+    });
+
+    const unsub = window.api.settings.onChange(({ key, value }) => {
+      if (key === 'fontSize') setFontSize(value);
+      if (key === 'scrollback') setScrollback(value);
+      if (key === 'sidebarWidth') setSidebarWidth(value);
+      if (key === 'notifications') setNotificationsEnabled(value);
+    });
+    return unsub;
+  }, []);
+
+  // Keyboard shortcuts: Ctrl+/- for font size
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        const next = Math.min(24, fontSize + 1);
+        setFontSize(next);
+        window.api.settings.set('fontSize', next);
+      }
+      if (e.ctrlKey && e.key === '-') {
+        e.preventDefault();
+        const next = Math.max(8, fontSize - 1);
+        setFontSize(next);
+        window.api.settings.set('fontSize', next);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [fontSize]);
+
   const setViewMode = useCallback((mode: ViewMode) => {
     setViewModeRaw(mode);
     try { localStorage.setItem('viewMode', mode); } catch {}
@@ -47,8 +96,47 @@ export function App() {
     const next = lang === 'ko' ? 'en' : 'ko';
     setLang(next);
     setLangState(next);
-    window.api.settings?.set('lang', next);
+    window.api.settings.set('lang', next);
   }, [lang]);
+
+  // Sidebar drag resize
+  const isResizingRef = useRef(false);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingRef.current = true;
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+
+    const onMove = (ev: MouseEvent) => {
+      if (!isResizingRef.current) return;
+      const newWidth = Math.max(200, Math.min(window.innerWidth * 0.5, startWidth + ev.clientX - startX));
+      setSidebarWidth(newWidth);
+    };
+
+    const onUp = () => {
+      isResizingRef.current = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [sidebarWidth]);
+
+  // Persist sidebar width on change (debounced)
+  const sidebarSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (sidebarSaveTimer.current) clearTimeout(sidebarSaveTimer.current);
+    sidebarSaveTimer.current = setTimeout(() => {
+      localStorage.setItem('sidebarWidth', String(sidebarWidth));
+      window.api.settings.set('sidebarWidth', sidebarWidth);
+    }, 300);
+  }, [sidebarWidth]);
 
   // Naming overlay
   const [namingState, setNamingState] = useState<{ active: boolean; done: number; total: number; name: string; reason: string }>({
@@ -85,16 +173,14 @@ export function App() {
   }, []);
 
   // "User intent" — the sessions the user wants open, independent of PTY state.
-  // This is what gets saved to disk. PTY exit events do NOT affect this.
   const savedSessionsRef = useRef<Array<{ sessionId?: string; name: string; cwd: string }>>([]);
 
   const saveState = useCallback(() => {
     window.api.state.save(savedSessionsRef.current);
   }, []);
 
-  // Track user intent: add a session to saved list
   const trackOpen = useCallback((t: { sessionId?: string; name: string; cwd: string }) => {
-    if (!t.sessionId) return; // Don't save sessions without ID
+    if (!t.sessionId) return;
     savedSessionsRef.current = [
       ...savedSessionsRef.current.filter(s => s.sessionId !== t.sessionId),
       t,
@@ -102,28 +188,43 @@ export function App() {
     saveState();
   }, [saveState]);
 
-  // Track user intent: remove a session from saved list
   const trackClose = useCallback((sessionId?: string) => {
     if (!sessionId) return;
     savedSessionsRef.current = savedSessionsRef.current.filter(s => s.sessionId !== sessionId);
     saveState();
   }, [saveState]);
 
-  // Track user intent: clear all
   const trackCloseAll = useCallback(() => {
     savedSessionsRef.current = [];
     saveState();
   }, [saveState]);
 
-  // Periodic backup save (every 10s) — safety net for crashes
   useEffect(() => {
     const interval = setInterval(saveState, 10000);
     return () => clearInterval(interval);
   }, [saveState]);
 
+  // Detect session ID for newly created sessions
+  useEffect(() => {
+    window.api.onSessionDetected?.((data: { ptyId: string; sessionId: string }) => {
+      setActiveTerminals(prev => {
+        const target = prev.find(t => t.ptyId === data.ptyId && !t.sessionId);
+        if (target) {
+          trackOpen({ sessionId: data.sessionId, name: target.name, cwd: target.cwd });
+        }
+        return prev.map(t =>
+          t.ptyId === data.ptyId && !t.sessionId
+            ? { ...t, sessionId: data.sessionId }
+            : t
+        );
+      });
+      loadSessions();
+    });
+  }, [trackOpen]);
+
   useEffect(() => {
     loadSessions();
-    restoreSavedTerminals();
+    restoreSavedTerminals().then(() => restorePinnedSessions());
   }, []);
 
   const restoreSavedTerminals = async () => {
@@ -134,8 +235,6 @@ export function App() {
 
       setRestoring(true);
       setRestoreCount(resumable.length);
-
-      // Preserve saved state — don't let it get overwritten during restore
       savedSessionsRef.current = resumable;
 
       for (const t of resumable) {
@@ -156,6 +255,49 @@ export function App() {
       console.error('[restore] Failed:', err);
     } finally {
       setRestoring(false);
+    }
+  };
+
+  // Auto-restore pinned sessions not already open
+  const restorePinnedSessions = async () => {
+    try {
+      const pinnedIds = await window.api.sessions.listPinned();
+      if (pinnedIds.length === 0) return;
+
+      const allSessions = await window.api.sessions.list();
+      for (const id of pinnedIds) {
+        // Skip if already open from state restore
+        setActiveTerminals(prev => {
+          const alreadyOpen = prev.find(t => t.sessionId === id && t.status === 'running');
+          return prev; // just checking, don't mutate
+        });
+
+        const session = allSessions.find(s => s.id === id);
+        if (session) {
+          // Check again outside setState
+          const currentTerminals = await new Promise<ActiveTerminal[]>(resolve => {
+            setActiveTerminals(prev => { resolve(prev); return prev; });
+          });
+          if (!currentTerminals.find(t => t.sessionId === id && t.status === 'running')) {
+            const name = session.name || session.firstPrompt.slice(0, 40);
+            const ptyId = await window.api.pty.create({
+              sessionId: session.id,
+              cwd: session.cwd,
+              name,
+            });
+            setActiveTerminals(prev => [...prev, {
+              ptyId,
+              sessionId: session.id,
+              name,
+              cwd: session.cwd,
+              status: 'running',
+            }]);
+            trackOpen({ sessionId: session.id, name, cwd: session.cwd });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[pin-restore] Failed:', err);
     }
   };
 
@@ -188,12 +330,10 @@ export function App() {
   }, []);
 
   const handleResumeSession = useCallback(async (session: SessionInfo) => {
-    // Prevent duplicate: check if this session is already open
     const alreadyOpen = activeTerminals.find(
       t => t.sessionId === session.id && t.status === 'running'
     );
     if (alreadyOpen) {
-      // Focus the existing one instead
       setFocusedTerminal(alreadyOpen.ptyId);
       return;
     }
@@ -256,12 +396,10 @@ export function App() {
     if (sessionIds.length === 0) return;
     setManualNaming(true);
     try {
-      const nameMap: Record<string, string> = await window.api.nameActiveSessions(sessionIds);
-      // Update terminal tab names
+      const nameMap: Record<string, string> = await window.api.nameActiveSessions!(sessionIds);
       setActiveTerminals(prev => prev.map(t =>
         t.sessionId && nameMap[t.sessionId] ? { ...t, name: nameMap[t.sessionId] } : t
       ));
-      // Update saved state
       savedSessionsRef.current = savedSessionsRef.current.map(s =>
         s.sessionId && nameMap[s.sessionId] ? { ...s, name: nameMap[s.sessionId] } : s
       );
@@ -269,6 +407,19 @@ export function App() {
       await loadSessions();
     } finally {
       setManualNaming(false);
+    }
+  }, [activeTerminals, saveState]);
+
+  const handleRenameTerminal = useCallback((ptyId: string, newName: string) => {
+    setActiveTerminals(prev => prev.map(t =>
+      t.ptyId === ptyId ? { ...t, name: newName } : t
+    ));
+    const terminal = activeTerminals.find(t => t.ptyId === ptyId);
+    if (terminal?.sessionId) {
+      savedSessionsRef.current = savedSessionsRef.current.map(s =>
+        s.sessionId === terminal.sessionId ? { ...s, name: newName } : s
+      );
+      saveState();
     }
   }, [activeTerminals, saveState]);
 
@@ -288,6 +439,11 @@ export function App() {
     setSessions(prev => prev.map(s => s.id === session.id ? { ...s, hidden: val } : s));
   }, []);
 
+  const handleTogglePinned = useCallback(async (session: SessionInfo) => {
+    const val = await window.api.sessions.togglePinned(session.id);
+    setSessions(prev => prev.map(s => s.id === session.id ? { ...s, pinned: val } : s));
+  }, []);
+
   const handleGenerateName = useCallback(async (session: SessionInfo) => {
     try {
       const name = await window.api.sessions.generateName(session.id, session.projectDir);
@@ -299,7 +455,6 @@ export function App() {
     }
   }, []);
 
-  // 2) Delete session → also kill from grid if active
   const handleDeleteSession = useCallback(async (session: SessionInfo) => {
     const ok = await window.api.sessions.delete(session.id, session.projectDir);
     if (ok) {
@@ -309,7 +464,6 @@ export function App() {
         next.delete(session.id);
         return next;
       });
-      // Kill any active terminal using this session
       setActiveTerminals(prev => {
         const toKill = prev.filter(t => t.sessionId === session.id);
         toKill.forEach(t => window.api.pty.kill(t.ptyId));
@@ -338,7 +492,6 @@ export function App() {
     setFocusedTerminal(ptyId);
   }, []);
 
-  // 3) DnD reorder
   const handleReorderTerminals = useCallback((fromIndex: number, toIndex: number) => {
     setActiveTerminals(prev => {
       const next = [...prev];
@@ -360,6 +513,7 @@ export function App() {
           selectedSessions={selectedSessions}
           activeSessionIds={activeSessionIds}
           collapsed={sidebarCollapsed}
+          style={{ width: sidebarCollapsed ? 0 : sidebarWidth }}
           onToggleCollapse={toggleSidebar}
           onToggleSelect={toggleSessionSelection}
           onResumeSession={handleResumeSession}
@@ -369,11 +523,15 @@ export function App() {
           onGenerateName={handleGenerateName}
           onToggleFavorite={handleToggleFavorite}
           onToggleHidden={handleToggleHidden}
+          onTogglePinned={handleTogglePinned}
           onDeleteSession={handleDeleteSession}
           onRefresh={loadSessions}
           onCleanup={handleCleanup}
           loading={loading}
         />
+        {!sidebarCollapsed && (
+          <div className="sidebar-resize-handle" onMouseDown={handleResizeStart} />
+        )}
         <div className="main-content">
           <Toolbar
             viewMode={viewMode}
@@ -388,6 +546,7 @@ export function App() {
             onNewSession={() => setShowNewSession(true)}
             onNameAll={handleNameAll}
             naming={manualNaming}
+            onOpenSettings={() => setShowSettings(true)}
           />
           {restoring && activeTerminals.length === 0 ? (
             <div className="terminal-area">
@@ -399,10 +558,14 @@ export function App() {
             viewMode={viewMode}
             focusedTerminal={focusedTerminal}
             gridColumns={gridColumns}
+            fontSize={fontSize}
+            scrollback={scrollback}
+            notificationsEnabled={notificationsEnabled}
             onFocusTerminal={handleFocusTerminal}
             onKillTerminal={handleKillTerminal}
             onTerminalExit={handleTerminalExit}
             onReorder={handleReorderTerminals}
+            onRenameTerminal={handleRenameTerminal}
             onViewModeChange={setViewMode}
             onNewSession={() => setShowNewSession(true)}
           />
@@ -416,6 +579,10 @@ export function App() {
           onClose={() => setShowNewSession(false)}
           sessions={sessions}
         />
+      )}
+
+      {showSettings && (
+        <SettingsModal onClose={() => setShowSettings(false)} />
       )}
 
       {namingState.active && (

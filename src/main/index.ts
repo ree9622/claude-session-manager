@@ -176,6 +176,8 @@ ipcMain.handle('sessions:delete', async (_e, id: string, dir: string) => session
 ipcMain.handle('sessions:delete-old', async (_e, days: number) => sessionParser.deleteOldSessions(days));
 ipcMain.handle('sessions:toggle-favorite', async (_e, id: string) => sessionParser.toggleFavorite(id));
 ipcMain.handle('sessions:toggle-hidden', async (_e, id: string) => sessionParser.toggleHidden(id));
+ipcMain.handle('sessions:toggle-pinned', async (_e, id: string) => sessionParser.togglePinned(id));
+ipcMain.handle('sessions:list-pinned', async () => sessionParser.listPinned());
 ipcMain.handle('sessions:name-active', async (_e, sessionIds: string[]) => {
   logger.info('ipc', `sessions:name-active called, ${sessionIds.length} sessions`);
   mainWindow?.webContents.send('naming:start', { total: sessionIds.length, reason: 'manual' });
@@ -193,13 +195,92 @@ ipcMain.handle('sessions:name-active', async (_e, sessionIds: string[]) => {
   }
 });
 
-// PTY management
+// PTY management — session ID detection for new sessions
+function cwdToProjectDir(cwd: string): string {
+  const normalized = cwd.replace(/\//g, '\\');
+  return normalized.replace(':\\', '--').replace(/\\/g, '-');
+}
+
+function watchForNewSession(ptyId: string, cwd: string) {
+  const projectDir = cwdToProjectDir(cwd);
+  const projectPath = path.join(os.homedir(), '.claude', 'projects', projectDir);
+
+  // Snapshot existing files
+  let existingFiles: Set<string>;
+  try {
+    existingFiles = new Set(
+      fs.existsSync(projectPath)
+        ? fs.readdirSync(projectPath).filter(f => f.endsWith('.jsonl'))
+        : []
+    );
+  } catch {
+    existingFiles = new Set();
+  }
+
+  let resolved = false;
+
+  function tryDetect() {
+    if (resolved) return;
+    try {
+      if (!fs.existsSync(projectPath)) return;
+      const files = fs.readdirSync(projectPath).filter(f => f.endsWith('.jsonl'));
+      for (const f of files) {
+        if (!existingFiles.has(f)) {
+          resolved = true;
+          const sessionId = f.replace('.jsonl', '');
+          ptyManager.setSessionId(ptyId, sessionId);
+          mainWindow?.webContents.send('pty:session-detected', { ptyId, sessionId });
+          logger.info('detect', `New session detected: ${sessionId.slice(0, 8)} for PTY ${ptyId.slice(0, 8)}`);
+          cleanup();
+          return;
+        }
+      }
+    } catch {}
+  }
+
+  // Poll every 2s as primary mechanism
+  const pollInterval = setInterval(tryDetect, 2000);
+
+  // fs.watch as secondary (faster detection)
+  let watcher: fs.FSWatcher | null = null;
+  try {
+    if (fs.existsSync(projectPath)) {
+      watcher = fs.watch(projectPath, { persistent: false }, () => tryDetect());
+    }
+  } catch {}
+
+  // No fixed timeout — clean up when PTY exits instead
+  const exitCheck = setInterval(() => {
+    const inst = ptyManager.list().find(i => i.id === ptyId);
+    if (!inst || inst.status === 'exited') {
+      // PTY is gone — do one final detection attempt, then clean up
+      tryDetect();
+      cleanup();
+    }
+  }, 5000);
+
+  function cleanup() {
+    clearInterval(pollInterval);
+    clearInterval(exitCheck);
+    try { watcher?.close(); } catch {}
+  }
+
+  // Initial check after a delay
+  setTimeout(tryDetect, 1000);
+}
+
 ipcMain.handle('pty:create', async (_e, options: { sessionId?: string; cwd?: string; name?: string }) => {
   logger.info('ipc', 'pty:create called', options);
   try {
     const id = ptyManager.create(options);
     ptyManager.onData(id, (data) => mainWindow?.webContents.send(`pty:data:${id}`, data));
     ptyManager.onExit(id, (exitCode) => mainWindow?.webContents.send(`pty:exit:${id}`, exitCode));
+
+    // For new sessions (no sessionId), watch for the session file Claude creates
+    if (!options.sessionId && options.cwd) {
+      watchForNewSession(id, options.cwd);
+    }
+
     return id;
   } catch (err) {
     logger.error('ipc', 'pty:create failed', { error: String(err), options });
@@ -219,9 +300,11 @@ ipcMain.handle('state:load', async () => stateStore.load());
 
 // Settings
 ipcMain.handle('settings:get', async (_e, key: string) => settings.get(key as any));
+ipcMain.handle('settings:get-all', async () => settings.load());
 ipcMain.handle('settings:set', async (_e, key: string, value: any) => {
   settings.set(key as any, value);
   if (key === 'lang') updateTrayMenu();
+  mainWindow?.webContents.send('settings:changed', { key, value });
 });
 
 // Logging
@@ -313,8 +396,35 @@ if (!gotLock) {
     e.preventDefault();
     quitPhase = 'naming';
 
+    // Last-chance detection: try to find session IDs for PTYs that haven't been detected yet
     const instances = ptyManager.list();
-    const sessionIds = instances
+    for (const inst of instances) {
+      if (!inst.sessionId && inst.cwd && inst.status === 'running') {
+        try {
+          const projDir = cwdToProjectDir(inst.cwd);
+          const projPath = path.join(os.homedir(), '.claude', 'projects', projDir);
+          if (fs.existsSync(projPath)) {
+            const files = fs.readdirSync(projPath)
+              .filter(f => f.endsWith('.jsonl'))
+              .map(f => ({ name: f, mtime: fs.statSync(path.join(projPath, f)).mtimeMs }))
+              .sort((a, b) => b.mtime - a.mtime);
+            // Use the most recently modified session file as best guess
+            if (files.length > 0) {
+              const sessionId = files[0].name.replace('.jsonl', '');
+              ptyManager.setSessionId(inst.id, sessionId);
+              mainWindow?.webContents.send('pty:session-detected', { ptyId: inst.id, sessionId });
+              logger.info('app', `Last-chance detection: ${sessionId.slice(0, 8)} for PTY ${inst.id.slice(0, 8)}`);
+            }
+          }
+        } catch (err) {
+          logger.error('app', `Last-chance detection failed for PTY ${inst.id.slice(0, 8)}`, String(err));
+        }
+      }
+    }
+
+    // Re-read instances after detection
+    const updatedInstances = ptyManager.list();
+    const sessionIds = updatedInstances
       .filter(i => i.sessionId && i.status === 'running')
       .map(i => i.sessionId!);
 
@@ -342,6 +452,19 @@ if (!gotLock) {
       .catch(err => logger.error('app', 'Session naming failed', String(err)))
       .finally(() => {
         clearTimeout(timeout);
+        // Safety net: merge any PTY sessions the renderer missed into saved state
+        const finalInstances = ptyManager.list().filter(i => i.sessionId);
+        const existingState = stateStore.load();
+        const existingIds = new Set(existingState.map(s => s.sessionId));
+        const missing = finalInstances.filter(i => !existingIds.has(i.sessionId));
+        if (missing.length > 0) {
+          const merged = [
+            ...existingState,
+            ...missing.map(i => ({ sessionId: i.sessionId, name: i.name, cwd: i.cwd })),
+          ];
+          stateStore.save(merged);
+          logger.info('app', `Added ${missing.length} missing sessions to state before quit`);
+        }
         forceQuit();
       });
   });

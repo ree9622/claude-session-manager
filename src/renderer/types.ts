@@ -9,6 +9,7 @@ export interface SessionInfo {
   name?: string;
   favorite?: boolean;
   hidden?: boolean;
+  pinned?: boolean;
 }
 
 export interface ActiveTerminal {
@@ -33,6 +34,8 @@ declare global {
         delete: (sessionId: string, projectDir: string) => Promise<boolean>;
         toggleFavorite: (id: string) => Promise<boolean>;
         toggleHidden: (id: string) => Promise<boolean>;
+        togglePinned: (id: string) => Promise<boolean>;
+        listPinned: () => Promise<string[]>;
       };
       pty: {
         create: (options: { sessionId?: string; cwd?: string; name?: string }) => Promise<string>;
@@ -58,6 +61,19 @@ declare global {
         install: () => Promise<void>;
         onStatus: (callback: (status: any) => void) => () => void;
       };
+      settings: {
+        get: (key: string) => Promise<any>;
+        set: (key: string, value: any) => Promise<void>;
+        getAll: () => Promise<Record<string, any>>;
+        onChange: (callback: (data: { key: string; value: any }) => void) => () => void;
+      };
+      nameActiveSessions?: (sessionIds: string[]) => Promise<Record<string, string>>;
+      onNamingStart?: (callback: (data: { total: number; reason?: string }) => void) => void;
+      onNamingProgress?: (callback: (data: { done: number; total: number; name: string }) => void) => void;
+      onNamingDone?: (callback: () => void) => void;
+      onNamesChanged?: (callback: () => void) => void;
+      onFirstRun?: (callback: () => void) => void;
+      onSessionDetected?: (callback: (data: { ptyId: string; sessionId: string }) => void) => void;
     };
   }
 }

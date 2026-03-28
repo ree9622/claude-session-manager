@@ -15,11 +15,12 @@ interface ToolbarProps {
   onNewSession: () => void;
   onNameAll: () => void;
   naming: boolean;
+  onOpenSettings: () => void;
 }
 
 export function Toolbar({
   viewMode, onViewModeChange, activeCount, sidebarCollapsed,
-  gridColumns, onGridColumnsChange, onToggleSidebar, onLangChange, onCloseAll, onNewSession, onNameAll, naming,
+  gridColumns, onGridColumnsChange, onToggleSidebar, onLangChange, onCloseAll, onNewSession, onNameAll, naming, onOpenSettings,
 }: ToolbarProps) {
   const lang = getLang();
   return (
@@ -77,6 +78,7 @@ export function Toolbar({
             </button>
           </>
         )}
+        <button className="btn btn-sm" onClick={onOpenSettings} title={t('settings.title')}>&#x2699;</button>
         <button
           className="btn btn-sm"
           onClick={onLangChange}

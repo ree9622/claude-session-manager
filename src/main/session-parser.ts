@@ -16,6 +16,7 @@ export interface SessionInfo {
   name?: string;
   favorite?: boolean;
   hidden?: boolean;
+  pinned?: boolean;
 }
 
 const CLAUDE_DIR = path.join(os.homedir(), '.claude');
@@ -23,7 +24,7 @@ const PROJECTS_DIR = path.join(CLAUDE_DIR, 'projects');
 const NAMES_FILE = path.join(CLAUDE_DIR, 'session-names.json');
 const META_FILE = path.join(CLAUDE_DIR, 'session-meta.json');
 
-interface SessionMeta { favorite?: boolean; hidden?: boolean; }
+interface SessionMeta { favorite?: boolean; hidden?: boolean; pinned?: boolean; }
 
 export class SessionParser {
   private namesCache: Record<string, string> = {};
@@ -72,6 +73,20 @@ export class SessionParser {
     this.metaCache[sessionId].hidden = !current;
     this.saveMeta();
     return !current;
+  }
+
+  togglePinned(sessionId: string): boolean {
+    const current = this.metaCache[sessionId]?.pinned || false;
+    if (!this.metaCache[sessionId]) this.metaCache[sessionId] = {};
+    this.metaCache[sessionId].pinned = !current;
+    this.saveMeta();
+    return !current;
+  }
+
+  listPinned(): string[] {
+    return Object.entries(this.metaCache)
+      .filter(([_, meta]) => meta.pinned)
+      .map(([id]) => id);
   }
 
   private saveNames() {
@@ -123,6 +138,7 @@ export class SessionParser {
                 if (meta) {
                   info.favorite = meta.favorite;
                   info.hidden = meta.hidden;
+                  info.pinned = meta.pinned;
                 }
               }
               return info;

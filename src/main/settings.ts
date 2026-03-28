@@ -9,6 +9,10 @@ interface Settings {
   startOnLogin: boolean;
   lang: string;
   firstRun: boolean;
+  fontSize: number;
+  scrollback: number;
+  sidebarWidth: number;
+  notifications: boolean;
 }
 
 const defaults: Settings = {
@@ -16,6 +20,10 @@ const defaults: Settings = {
   startOnLogin: false,
   lang: 'ko',
   firstRun: true,
+  fontSize: 13,
+  scrollback: 5000,
+  sidebarWidth: 320,
+  notifications: true,
 };
 
 let cache: Settings | null = null;

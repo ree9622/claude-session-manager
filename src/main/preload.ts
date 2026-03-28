@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke('sessions:delete', sessionId, projectDir),
     toggleFavorite: (id: string) => ipcRenderer.invoke('sessions:toggle-favorite', id) as Promise<boolean>,
     toggleHidden: (id: string) => ipcRenderer.invoke('sessions:toggle-hidden', id) as Promise<boolean>,
+    togglePinned: (id: string) => ipcRenderer.invoke('sessions:toggle-pinned', id) as Promise<boolean>,
+    listPinned: () => ipcRenderer.invoke('sessions:list-pinned') as Promise<string[]>,
   },
 
   // PTY management
@@ -69,6 +71,12 @@ contextBridge.exposeInMainWorld('api', {
   settings: {
     get: (key: string) => ipcRenderer.invoke('settings:get', key),
     set: (key: string, value: any) => ipcRenderer.invoke('settings:set', key, value),
+    getAll: () => ipcRenderer.invoke('settings:get-all'),
+    onChange: (callback: (data: { key: string; value: any }) => void) => {
+      const handler = (_e: any, data: { key: string; value: any }) => callback(data);
+      ipcRenderer.on('settings:changed', handler);
+      return () => ipcRenderer.removeListener('settings:changed', handler);
+    },
   },
 
   // First run
@@ -90,5 +98,10 @@ contextBridge.exposeInMainWorld('api', {
   },
   onNamingDone: (callback: () => void) => {
     ipcRenderer.on('naming:done', () => callback());
+  },
+
+  // Session detection for new sessions
+  onSessionDetected: (callback: (data: { ptyId: string; sessionId: string }) => void) => {
+    ipcRenderer.on('pty:session-detected', (_e, data) => callback(data));
   },
 });

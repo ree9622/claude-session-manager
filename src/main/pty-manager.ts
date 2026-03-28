@@ -159,6 +159,14 @@ export class PtyManager {
     this.instances.delete(id);
   }
 
+  setSessionId(id: string, sessionId: string) {
+    const instance = this.instances.get(id);
+    if (instance) {
+      instance.sessionId = sessionId;
+      logger.info('pty', `Session ID set for PTY ${id.slice(0, 8)}: ${sessionId.slice(0, 8)}`);
+    }
+  }
+
   killAll() {
     logger.info('pty', `Killing all ${this.instances.size} PTY instances`);
     for (const [id] of this.instances) {
