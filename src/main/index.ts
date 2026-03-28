@@ -124,12 +124,20 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../index.html'));
   }
 
-  // Close behavior based on settings
+  // Close behavior: naming + tray/quit
   mainWindow.on('close', (e) => {
-    if (!isQuitting && settings.get('closeToTray')) {
-      e.preventDefault();
+    if (isQuitting) return; // Already in quit flow, let it close
+
+    e.preventDefault();
+
+    if (settings.get('closeToTray')) {
       mainWindow?.hide();
+      return;
     }
+
+    // closeToTray=false → trigger quit (naming handled in before-quit)
+    isQuitting = true;
+    app.quit();
   });
 
   mainWindow.on('closed', () => { mainWindow = null; });
@@ -154,6 +162,14 @@ ipcMain.handle('sessions:delete', async (_e, id: string, dir: string) => session
 ipcMain.handle('sessions:delete-old', async (_e, days: number) => sessionParser.deleteOldSessions(days));
 ipcMain.handle('sessions:toggle-favorite', async (_e, id: string) => sessionParser.toggleFavorite(id));
 ipcMain.handle('sessions:toggle-hidden', async (_e, id: string) => sessionParser.toggleHidden(id));
+ipcMain.handle('sessions:name-active', async (_e, sessionIds: string[]) => {
+  mainWindow?.webContents.send('naming:start', { total: sessionIds.length });
+  const result = await sessionParser.nameUnnamedSessions(sessionIds, (done, total, name) => {
+    mainWindow?.webContents.send('naming:progress', { done, total, name });
+  });
+  mainWindow?.webContents.send('naming:done');
+  return result;
+});
 
 // PTY management
 ipcMain.handle('pty:create', async (_e, options: { sessionId?: string; cwd?: string; name?: string }) => {

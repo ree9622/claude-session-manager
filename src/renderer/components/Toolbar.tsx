@@ -13,11 +13,13 @@ interface ToolbarProps {
   onLangChange: () => void;
   onCloseAll: () => void;
   onNewSession: () => void;
+  onNameAll: () => void;
+  naming: boolean;
 }
 
 export function Toolbar({
   viewMode, onViewModeChange, activeCount, sidebarCollapsed,
-  gridColumns, onGridColumnsChange, onToggleSidebar, onLangChange, onCloseAll, onNewSession,
+  gridColumns, onGridColumnsChange, onToggleSidebar, onLangChange, onCloseAll, onNewSession, onNameAll, naming,
 }: ToolbarProps) {
   const lang = getLang();
   return (
@@ -58,12 +60,22 @@ export function Toolbar({
           {activeCount > 0 ? t('toolbar.active', { n: activeCount }) : t('toolbar.noTerminals')}
         </span>
         {activeCount > 0 && (
-          <button
-            className="btn btn-sm btn-danger"
-            onClick={() => { if (confirm(t('toolbar.closeAllConfirm'))) onCloseAll(); }}
-          >
-            {t('toolbar.closeAll')}
-          </button>
+          <>
+            <button
+              className="btn btn-sm"
+              onClick={onNameAll}
+              disabled={naming}
+              title={t('toolbar.nameAll')}
+            >
+              {naming ? '⏳' : '🏷️'} {t('toolbar.nameAll')}
+            </button>
+            <button
+              className="btn btn-sm btn-danger"
+              onClick={() => { if (confirm(t('toolbar.closeAllConfirm'))) onCloseAll(); }}
+            >
+              {t('toolbar.closeAll')}
+            </button>
+          </>
         )}
         <button
           className="btn btn-sm"

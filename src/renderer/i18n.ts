@@ -53,6 +53,7 @@ const translations = {
   'grid.auto': { en: 'Auto', ko: '자동' },
   'grid.columns': { en: 'col', ko: '열' },
   'toolbar.closeAllConfirm': { en: 'Close all terminals?', ko: '모든 터미널을 닫을까요?' },
+  'toolbar.nameAll': { en: 'Name all', ko: '이름 생성' },
 
   // Terminal grid
   'terminal.empty': { en: 'No active terminals', ko: '활성 터미널이 없습니다' },

@@ -241,6 +241,21 @@ export function App() {
     trackCloseAll();
   }, [trackCloseAll]);
 
+  const [manualNaming, setManualNaming] = useState(false);
+  const handleNameAll = useCallback(async () => {
+    const sessionIds = activeTerminals
+      .filter(t => t.sessionId && t.status === 'running')
+      .map(t => t.sessionId!);
+    if (sessionIds.length === 0) return;
+    setManualNaming(true);
+    try {
+      await window.api.nameActiveSessions(sessionIds);
+      await loadSessions();
+    } finally {
+      setManualNaming(false);
+    }
+  }, [activeTerminals]);
+
   const handleTerminalExit = useCallback((ptyId: string) => {
     setActiveTerminals(prev =>
       prev.map(t => t.ptyId === ptyId ? { ...t, status: 'exited' as const } : t)
@@ -355,6 +370,8 @@ export function App() {
             onLangChange={handleLangChange}
             onCloseAll={handleCloseAll}
             onNewSession={() => setShowNewSession(true)}
+            onNameAll={handleNameAll}
+            naming={manualNaming}
           />
           {restoring && activeTerminals.length === 0 ? (
             <div className="terminal-area">
