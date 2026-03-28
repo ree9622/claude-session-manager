@@ -248,10 +248,37 @@ if (!gotLock) {
     setupAutoUpdater();
   });
 
-  app.on('before-quit', () => {
-    isQuitting = true;
-    logger.info('app', 'before-quit');
-    ptyManager.killAll();
+  let namingDone = false;
+
+  app.on('before-quit', (e) => {
+    if (!namingDone) {
+      e.preventDefault();
+      isQuitting = true;
+      logger.info('app', 'before-quit: naming unnamed sessions...');
+
+      const instances = ptyManager.list();
+      const sessionIds = instances
+        .filter(i => i.sessionId && i.status === 'running')
+        .map(i => i.sessionId!);
+
+      if (sessionIds.length === 0) {
+        namingDone = true;
+        ptyManager.killAll();
+        app.quit();
+        return;
+      }
+
+      sessionParser.nameUnnamedSessions(sessionIds)
+        .catch(err => logger.error('app', 'Session naming failed', String(err)))
+        .finally(() => {
+          namingDone = true;
+          ptyManager.killAll();
+          app.quit();
+        });
+    } else {
+      logger.info('app', 'before-quit: naming done, quitting');
+      ptyManager.killAll();
+    }
   });
 
   app.on('window-all-closed', () => {

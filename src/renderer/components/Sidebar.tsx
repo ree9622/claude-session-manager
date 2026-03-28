@@ -8,6 +8,7 @@ type SortMode = 'project' | 'time';
 interface SidebarProps {
   sessions: SessionInfo[];
   selectedSessions: Set<string>;
+  activeSessionIds: Set<string>;
   collapsed: boolean;
   onToggleCollapse: () => void;
   onToggleSelect: (id: string) => void;
@@ -47,22 +48,22 @@ function timeLabel(timestamp: number): string {
 }
 
 function SessionItem({
-  session, isSelected, isExpanded,
+  session, isSelected, isExpanded, isActive,
   onToggleSelect, onToggleExpand, onResume, onGenerateName, onDelete,
   onToggleFavorite, onToggleHidden, showProject,
 }: {
-  session: SessionInfo; isSelected: boolean; isExpanded: boolean;
+  session: SessionInfo; isSelected: boolean; isExpanded: boolean; isActive: boolean;
   onToggleSelect: () => void; onToggleExpand: () => void;
   onResume: () => void; onGenerateName: () => void; onDelete: () => void;
   onToggleFavorite: () => void; onToggleHidden: () => void;
   showProject: boolean;
 }) {
   return (
-    <div className={`session-item ${isSelected ? 'selected' : ''} ${isExpanded ? 'expanded' : ''}`}>
+    <div className={`session-item ${isSelected ? 'selected' : ''} ${isExpanded ? 'expanded' : ''} ${isActive ? 'active' : ''}`}>
       <div className="session-item-row" onClick={onToggleSelect}>
         <div className={`checkbox ${isSelected ? 'checked' : ''}`} />
         <div className="session-item-summary">
-          <div className="session-name">{session.favorite ? '★ ' : ''}{session.name || session.id.slice(0, 8)}</div>
+          <div className="session-name">{isActive ? '● ' : ''}{session.favorite ? '★ ' : ''}{session.name || session.id.slice(0, 8)}</div>
           <div className="session-prompt">{session.firstPrompt}</div>
           {showProject && (
             <div className="session-item-meta">
@@ -116,7 +117,7 @@ function SessionItem({
 }
 
 export function Sidebar({
-  sessions, selectedSessions, collapsed, onToggleCollapse,
+  sessions, selectedSessions, activeSessionIds, collapsed, onToggleCollapse,
   onToggleSelect, onResumeSession, onBulkResume, onSearch,
   onNewSession, onGenerateName, onDeleteSession, onToggleFavorite, onToggleHidden, onRefresh, onCleanup, loading,
 }: SidebarProps) {
@@ -233,6 +234,7 @@ export function Sidebar({
                         session={session}
                         isSelected={selectedSessions.has(session.id)}
                         isExpanded={expandedSession === session.id}
+                        isActive={activeSessionIds.has(session.id)}
                         onToggleSelect={() => onToggleSelect(session.id)}
                         onToggleExpand={() => setExpandedSession(prev => prev === session.id ? null : session.id)}
                         onResume={() => onResumeSession(session)}

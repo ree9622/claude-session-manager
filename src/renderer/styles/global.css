@@ -471,6 +471,14 @@ body {
   border-color: rgba(124, 107, 245, 0.3);
 }
 
+.session-item.active {
+  border-left: 3px solid #4ade80;
+}
+
+.session-item.active .session-name {
+  color: #4ade80;
+}
+
 .session-item.expanded {
   background: var(--bg-tertiary);
   border-color: var(--border);

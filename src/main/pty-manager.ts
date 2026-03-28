@@ -54,21 +54,40 @@ export class PtyManager {
 
     logger.info('pty', `PTY spawned, pid=${ptyProcess.pid}`);
 
-    // Send claude command after shell is ready
-    setTimeout(() => {
-      let cmd: string;
-      if (options.sessionId) {
-        cmd = `claude --resume ${options.sessionId}`;
-      } else if (options.resume) {
-        // Resume most recent session in this directory
-        cmd = `claude --continue`;
-      } else {
-        const nameArg = options.name ? ` --name "${options.name}"` : '';
-        cmd = `claude${nameArg}`;
+    // Build claude command
+    let cmd: string;
+    if (options.sessionId) {
+      cmd = `claude --resume ${options.sessionId}`;
+    } else if (options.resume) {
+      cmd = `claude --continue`;
+    } else {
+      const nameArg = options.name ? ` --name "${options.name}"` : '';
+      cmd = `claude${nameArg}`;
+    }
+
+    // Wait for shell to be ready by detecting first output (prompt),
+    // instead of a fixed timeout which can miss slow shell init
+    let cmdSent = false;
+    const readyDisposable = ptyProcess.onData(() => {
+      if (!cmdSent) {
+        cmdSent = true;
+        readyDisposable.dispose();
+        setTimeout(() => {
+          logger.info('pty', `Shell ready, sending: ${cmd}`);
+          ptyProcess.write(`${cmd}\r`);
+        }, 100);
       }
-      logger.info('pty', `Sending command: ${cmd}`);
-      ptyProcess.write(`${cmd}\r`);
-    }, 800);
+    });
+
+    // Safety fallback
+    setTimeout(() => {
+      if (!cmdSent) {
+        cmdSent = true;
+        readyDisposable.dispose();
+        logger.warn('pty', `Shell ready timeout (5s), forcing: ${cmd}`);
+        ptyProcess.write(`${cmd}\r`);
+      }
+    }, 5000);
 
     const instance: PtyInstance = {
       id,

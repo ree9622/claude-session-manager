@@ -91,6 +91,10 @@ export class SessionParser {
   }
 
   async listSessions(): Promise<SessionInfo[]> {
+    // Reload from disk — picks up names/meta changed by running sessions
+    this.loadNames();
+    this.loadMeta();
+
     if (!fs.existsSync(PROJECTS_DIR)) return [];
 
     const projectDirs = fs.readdirSync(PROJECTS_DIR);
@@ -256,7 +260,18 @@ export class SessionParser {
       .join('\n')
       .slice(0, 1000);
 
-    const prompt = `아래 대화 내용을 보고 이 세션의 이름을 한국어 3~6단어로 지어줘. 이름만 출력하고 다른 설명은 붙이지 마.\n\n${userMessages}`;
+    const prompt = `아래 대화 내용을 분석하여 세션 이름을 생성해줘.
+
+포맷: [태그] 한글요약 (최대 40자, 이름만 출력)
+
+태그 분류:
+[버그수정] fix,버그,에러,오류 / [기능] 새기능,추가,구현 / [개선] 리팩토링,개선,성능
+[배포] 배포,머지,deploy / [인프라] 서버,AWS,PM2 / [CS] 고객,환불,문의
+[분석] 조사,분석,로그 / [설정] 설정,환경변수,config / [기타] 해당없음
+
+이슈ID(CLASUP-xxx, LETMEUP-xxx 등)가 있으면 태그 뒤에 포함.
+
+${userMessages}`;
 
     try {
       const name = await this.callClaude(prompt);
@@ -308,6 +323,39 @@ export class SessionParser {
       proc.stdin.write(prompt);
       proc.stdin.end();
     });
+  }
+
+  findProjectDir(sessionId: string): string | null {
+    if (!fs.existsSync(PROJECTS_DIR)) return null;
+    for (const dir of fs.readdirSync(PROJECTS_DIR)) {
+      if (fs.existsSync(path.join(PROJECTS_DIR, dir, `${sessionId}.jsonl`))) return dir;
+    }
+    return null;
+  }
+
+  async nameUnnamedSessions(sessionIds: string[]): Promise<number> {
+    this.loadNames();
+    const unnamed = sessionIds.filter(id => !this.namesCache[id]);
+    if (unnamed.length === 0) return 0;
+
+    logger.info('session', `Naming ${unnamed.length} unnamed sessions...`);
+
+    let named = 0;
+    // Process in batches of 3 to avoid rate limits
+    for (let i = 0; i < unnamed.length; i += 3) {
+      const batch = unnamed.slice(i, i + 3);
+      const results = await Promise.allSettled(
+        batch.map(async (sessionId) => {
+          const projectDir = this.findProjectDir(sessionId);
+          if (!projectDir) throw new Error('projectDir not found');
+          await this.generateSessionName(sessionId, projectDir);
+        })
+      );
+      named += results.filter(r => r.status === 'fulfilled').length;
+    }
+
+    logger.info('session', `Named ${named}/${unnamed.length} sessions`);
+    return named;
   }
 
   setSessionName(sessionId: string, name: string) {

@@ -146,6 +146,14 @@ export function App() {
     setLoading(false);
   };
 
+  const activeSessionIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const t of activeTerminals) {
+      if (t.sessionId && t.status === 'running') ids.add(t.sessionId);
+    }
+    return ids;
+  }, [activeTerminals]);
+
   const handleSearch = useCallback(async (query: string) => {
     if (query.trim()) {
       const results = await window.api.sessions.search(query);
@@ -302,6 +310,7 @@ export function App() {
         <Sidebar
           sessions={sessions}
           selectedSessions={selectedSessions}
+          activeSessionIds={activeSessionIds}
           collapsed={sidebarCollapsed}
           onToggleCollapse={toggleSidebar}
           onToggleSelect={toggleSessionSelection}
