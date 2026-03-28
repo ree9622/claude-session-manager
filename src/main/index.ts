@@ -166,7 +166,7 @@ ipcMain.handle('sessions:name-active', async (_e, sessionIds: string[]) => {
   mainWindow?.webContents.send('naming:start', { total: sessionIds.length, reason: 'manual' });
   const result = await sessionParser.nameUnnamedSessions(sessionIds, (done, total, name) => {
     mainWindow?.webContents.send('naming:progress', { done, total, name });
-  });
+  }, true);  // force=true: regenerate even if name exists
   mainWindow?.webContents.send('naming:done');
   return result;
 });

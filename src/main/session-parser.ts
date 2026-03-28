@@ -260,22 +260,30 @@ export class SessionParser {
       .join('\n')
       .slice(0, 1000);
 
-    const prompt = `아래 대화 내용을 분석하여 세션 이름을 생성해줘.
+    const prompt = `세션 이름을 한 줄로 생성. 반드시 아래 포맷만 출력하고 다른 텍스트는 절대 붙이지 마.
 
-포맷: [태그] 한글요약 (최대 40자, 이름만 출력)
+포맷: [태그] 요약 (최대 40자)
+태그: 버그수정/기능/개선/배포/인프라/CS/분석/설정/기타
+이슈ID(CLASUP-xxx 등)가 있으면 태그 뒤에 포함.
 
-태그 분류:
-[버그수정] fix,버그,에러,오류 / [기능] 새기능,추가,구현 / [개선] 리팩토링,개선,성능
-[배포] 배포,머지,deploy / [인프라] 서버,AWS,PM2 / [CS] 고객,환불,문의
-[분석] 조사,분석,로그 / [설정] 설정,환경변수,config / [기타] 해당없음
+예시:
+[기능] 결제 모듈 리팩토링
+[버그수정] CLASUP-978 키오스크 이중결제
+[배포] v1.32 프로덕션 배포
 
-이슈ID(CLASUP-xxx, LETMEUP-xxx 등)가 있으면 태그 뒤에 포함.
-
+대화 내용:
 ${userMessages}`;
 
     try {
-      const name = await this.callClaude(prompt);
-      const cleaned = name.trim().replace(/^["']|["']$/g, '').slice(0, 50);
+      const raw = await this.callClaude(prompt);
+      // Strip markdown, quotes, take first line only
+      const cleaned = raw
+        .split('\n')[0]
+        .replace(/\*+/g, '')
+        .replace(/^["'`]+|["'`]+$/g, '')
+        .replace(/^#+\s*/, '')
+        .trim()
+        .slice(0, 50);
       if (cleaned) {
         this.namesCache[sessionId] = cleaned;
         this.saveNames();
@@ -283,7 +291,7 @@ ${userMessages}`;
         return cleaned;
       }
     } catch (err) {
-      logger.error('session', 'claude -p failed, using fallback', err);
+      logger.error('session', 'claude -p failed, using fallback', String(err));
     }
 
     // Fallback: simple extraction
@@ -336,16 +344,17 @@ ${userMessages}`;
   async nameUnnamedSessions(
     sessionIds: string[],
     onProgress?: (done: number, total: number, name: string) => void,
+    force = false,
   ): Promise<number> {
     this.loadNames();
-    const unnamed = sessionIds.filter(id => !this.namesCache[id]);
-    if (unnamed.length === 0) return 0;
+    const targets = force ? sessionIds : sessionIds.filter(id => !this.namesCache[id]);
+    if (targets.length === 0) return 0;
 
-    const total = unnamed.length;
-    logger.info('session', `Naming ${total} unnamed sessions...`);
+    const total = targets.length;
+    logger.info('session', `Naming ${total} sessions (force=${force})...`);
 
     let named = 0;
-    for (const sessionId of unnamed) {
+    for (const sessionId of targets) {
       const projectDir = this.findProjectDir(sessionId);
       if (!projectDir) { named++; onProgress?.(named, total, ''); continue; }
 
