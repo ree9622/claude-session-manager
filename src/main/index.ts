@@ -164,11 +164,11 @@ ipcMain.handle('sessions:toggle-favorite', async (_e, id: string) => sessionPars
 ipcMain.handle('sessions:toggle-hidden', async (_e, id: string) => sessionParser.toggleHidden(id));
 ipcMain.handle('sessions:name-active', async (_e, sessionIds: string[]) => {
   mainWindow?.webContents.send('naming:start', { total: sessionIds.length, reason: 'manual' });
-  const result = await sessionParser.nameUnnamedSessions(sessionIds, (done, total, name) => {
+  const nameMap = await sessionParser.nameUnnamedSessions(sessionIds, (done, total, name) => {
     mainWindow?.webContents.send('naming:progress', { done, total, name });
-  }, true);  // force=true: regenerate even if name exists
+  }, true);
   mainWindow?.webContents.send('naming:done');
-  return result;
+  return nameMap;  // { sessionId: name } — renderer updates terminal tabs
 });
 
 // PTY management

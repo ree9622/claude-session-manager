@@ -310,7 +310,7 @@ ${userMessages}`;
 
   private callClaude(prompt: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      const proc = spawn('claude', ['-p', '--model', 'haiku', '--no-session-persistence'], {
+      const proc = spawn('claude', ['-p', '--model', 'sonnet', '--no-session-persistence'], {
         timeout: 30000,
         env: { ...process.env },
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -345,16 +345,18 @@ ${userMessages}`;
     sessionIds: string[],
     onProgress?: (done: number, total: number, name: string) => void,
     force = false,
-  ): Promise<number> {
+  ): Promise<Record<string, string>> {
     this.loadNames();
     const targets = force ? sessionIds : sessionIds.filter(id => !this.namesCache[id]);
-    if (targets.length === 0) return 0;
+    if (targets.length === 0) return {};
 
     const total = targets.length;
     logger.info('session', `Naming ${total} sessions (force=${force})...`);
 
+    const nameMap: Record<string, string> = {};
     let done = 0;
-    const results = await Promise.allSettled(
+
+    await Promise.allSettled(
       targets.map(async (sessionId) => {
         const projectDir = this.findProjectDir(sessionId);
         if (!projectDir) {
@@ -364,6 +366,7 @@ ${userMessages}`;
         }
         try {
           const name = await this.generateSessionName(sessionId, projectDir);
+          nameMap[sessionId] = name;
           done++;
           onProgress?.(done, total, name);
         } catch (err) {
@@ -374,9 +377,8 @@ ${userMessages}`;
       })
     );
 
-    const named = results.filter(r => r.status === 'fulfilled').length;
-    logger.info('session', `Named ${named}/${total} sessions`);
-    return named;
+    logger.info('session', `Named ${Object.keys(nameMap).length}/${total} sessions`);
+    return nameMap;
   }
 
   setSessionName(sessionId: string, name: string) {

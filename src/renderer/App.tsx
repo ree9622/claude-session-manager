@@ -249,12 +249,21 @@ export function App() {
     if (sessionIds.length === 0) return;
     setManualNaming(true);
     try {
-      await window.api.nameActiveSessions(sessionIds);
+      const nameMap: Record<string, string> = await window.api.nameActiveSessions(sessionIds);
+      // Update terminal tab names
+      setActiveTerminals(prev => prev.map(t =>
+        t.sessionId && nameMap[t.sessionId] ? { ...t, name: nameMap[t.sessionId] } : t
+      ));
+      // Update saved state
+      savedSessionsRef.current = savedSessionsRef.current.map(s =>
+        s.sessionId && nameMap[s.sessionId] ? { ...s, name: nameMap[s.sessionId] } : s
+      );
+      saveState();
       await loadSessions();
     } finally {
       setManualNaming(false);
     }
-  }, [activeTerminals]);
+  }, [activeTerminals, saveState]);
 
   const handleTerminalExit = useCallback((ptyId: string) => {
     setActiveTerminals(prev =>
