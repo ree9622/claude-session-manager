@@ -84,6 +84,9 @@ const translations = {
   // Detail
   'detail.path': { en: 'Path', ko: '경로' },
   'detail.messages': { en: 'Messages', ko: '메시지' },
+
+  // Naming on quit
+  'naming.title': { en: 'Naming sessions before closing...', ko: '종료 전 세션 이름 생성 중...' },
 } as const;
 
 export type TranslationKey = keyof typeof translations;

@@ -75,4 +75,15 @@ contextBridge.exposeInMainWorld('api', {
   onFirstRun: (callback: () => void) => {
     ipcRenderer.on('first-run', () => callback());
   },
+
+  // Naming on quit
+  onNamingStart: (callback: (data: { total: number }) => void) => {
+    ipcRenderer.on('naming:start', (_e, data) => callback(data));
+  },
+  onNamingProgress: (callback: (data: { done: number; total: number; name: string }) => void) => {
+    ipcRenderer.on('naming:progress', (_e, data) => callback(data));
+  },
+  onNamingDone: (callback: () => void) => {
+    ipcRenderer.on('naming:done', () => callback());
+  },
 });

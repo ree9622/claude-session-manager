@@ -252,6 +252,7 @@ if (!gotLock) {
 
   function forceQuit() {
     logger.info('app', 'Force quitting');
+    mainWindow?.webContents.send('naming:done');
     ptyManager.killAll();
     quitPhase = 'ready';
     app.quit();
@@ -261,18 +262,16 @@ if (!gotLock) {
     isQuitting = true;
 
     if (quitPhase === 'ready') {
-      // Naming done or skipped — allow quit, just clean up
       ptyManager.killAll();
       return;
     }
 
     if (quitPhase === 'naming') {
-      // Already naming — don't re-enter, just wait
       e.preventDefault();
       return;
     }
 
-    // First quit attempt — try naming
+    // First quit attempt — check for unnamed sessions
     e.preventDefault();
     quitPhase = 'naming';
 
@@ -286,15 +285,22 @@ if (!gotLock) {
       return;
     }
 
+    // Show window with naming overlay
+    if (mainWindow) {
+      if (!mainWindow.isVisible()) mainWindow.show();
+      mainWindow.webContents.send('naming:start', { total: sessionIds.length });
+    }
+
     logger.info('app', `Naming ${sessionIds.length} sessions before quit...`);
 
-    // Hard timeout — quit even if naming hangs
     const timeout = setTimeout(() => {
-      logger.warn('app', 'Naming timeout (15s), force quitting');
+      logger.warn('app', 'Naming timeout (30s), force quitting');
       forceQuit();
-    }, 15000);
+    }, 30000);
 
-    sessionParser.nameUnnamedSessions(sessionIds)
+    sessionParser.nameUnnamedSessions(sessionIds, (done, total, name) => {
+      mainWindow?.webContents.send('naming:progress', { done, total, name });
+    })
       .catch(err => logger.error('app', 'Session naming failed', String(err)))
       .finally(() => {
         clearTimeout(timeout);

@@ -50,6 +50,23 @@ export function App() {
     window.api.settings?.set('lang', next);
   }, [lang]);
 
+  // Naming overlay on quit
+  const [namingState, setNamingState] = useState<{ active: boolean; done: number; total: number; name: string }>({
+    active: false, done: 0, total: 0, name: '',
+  });
+
+  useEffect(() => {
+    window.api.onNamingStart?.((data: { total: number }) => {
+      setNamingState({ active: true, done: 0, total: data.total, name: '' });
+    });
+    window.api.onNamingProgress?.((data: { done: number; total: number; name: string }) => {
+      setNamingState({ active: true, done: data.done, total: data.total, name: data.name });
+    });
+    window.api.onNamingDone?.(() => {
+      setNamingState({ active: false, done: 0, total: 0, name: '' });
+    });
+  }, []);
+
   // First run notice
   useEffect(() => {
     window.api.onFirstRun?.(() => {
@@ -366,6 +383,17 @@ export function App() {
           onClose={() => setShowNewSession(false)}
           sessions={sessions}
         />
+      )}
+
+      {namingState.active && (
+        <div className="naming-overlay">
+          <div className="naming-content">
+            <div className="naming-spinner" />
+            <div className="naming-title">{t('naming.title')}</div>
+            <div className="naming-progress">{namingState.done} / {namingState.total}</div>
+            {namingState.name && <div className="naming-current">{namingState.name}</div>}
+          </div>
+        </div>
       )}
     </>
   );
