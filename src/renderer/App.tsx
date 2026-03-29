@@ -206,14 +206,14 @@ export function App() {
 
   // Detect session ID for newly created sessions
   useEffect(() => {
-    window.api.onSessionDetected?.((data: { ptyId: string; sessionId: string }) => {
+    window.api.onSessionDetected?.((data: { ptyId: string; sessionId: string; oldSessionId?: string }) => {
       setActiveTerminals(prev => {
-        const target = prev.find(t => t.ptyId === data.ptyId && !t.sessionId);
-        if (target) {
+        const target = prev.find(t => t.ptyId === data.ptyId);
+        if (target && !target.sessionId) {
           trackOpen({ sessionId: data.sessionId, name: target.name, cwd: target.cwd });
         }
         return prev.map(t =>
-          t.ptyId === data.ptyId && !t.sessionId
+          t.ptyId === data.ptyId
             ? { ...t, sessionId: data.sessionId }
             : t
         );

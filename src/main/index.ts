@@ -205,40 +205,54 @@ function watchForNewSession(ptyId: string, cwd: string) {
   const projectDir = cwdToProjectDir(cwd);
   const projectPath = path.join(os.homedir(), '.claude', 'projects', projectDir);
 
-  // Snapshot existing files
-  let existingFiles: Set<string>;
+  // Snapshot existing files — used to detect NEW session files
+  let knownFiles: Set<string>;
   try {
-    existingFiles = new Set(
+    knownFiles = new Set(
       fs.existsSync(projectPath)
         ? fs.readdirSync(projectPath).filter(f => f.endsWith('.jsonl'))
         : []
     );
   } catch {
-    existingFiles = new Set();
+    knownFiles = new Set();
   }
 
-  let resolved = false;
+  // Track whether initial detection resolved (for new sessions without sessionId)
+  const inst = ptyManager.list().find(i => i.id === ptyId);
+  let initialResolved = !!inst?.sessionId; // Already has sessionId = initial detection done
 
   function tryDetect() {
-    if (resolved) return;
     try {
       if (!fs.existsSync(projectPath)) return;
       const files = fs.readdirSync(projectPath).filter(f => f.endsWith('.jsonl'));
       for (const f of files) {
-        if (!existingFiles.has(f)) {
-          resolved = true;
+        if (!knownFiles.has(f)) {
+          // New session file detected
           const sessionId = f.replace('.jsonl', '');
+          const currentInst = ptyManager.list().find(i => i.id === ptyId);
+          if (!currentInst || currentInst.status === 'exited') return;
+
+          // Skip if this PTY already has this sessionId
+          if (currentInst.sessionId === sessionId) {
+            knownFiles.add(f);
+            continue;
+          }
+
+          const oldSessionId = currentInst.sessionId;
           ptyManager.setSessionId(ptyId, sessionId);
-          mainWindow?.webContents.send('pty:session-detected', { ptyId, sessionId });
-          logger.info('detect', `New session detected: ${sessionId.slice(0, 8)} for PTY ${ptyId.slice(0, 8)}`);
-          cleanup();
+          mainWindow?.webContents.send('pty:session-detected', { ptyId, sessionId, oldSessionId });
+          logger.info('detect', `Session ${oldSessionId ? 'changed' : 'detected'}: ${sessionId.slice(0, 8)} for PTY ${ptyId.slice(0, 8)}${oldSessionId ? ` (was ${oldSessionId.slice(0, 8)})` : ''}`);
+
+          // Add to known files so we detect NEXT change (e.g., another /clear)
+          knownFiles.add(f);
+          initialResolved = true;
           return;
         }
       }
     } catch {}
   }
 
-  // Poll every 2s as primary mechanism
+  // Poll every 2s — keeps running to detect /clear session changes
   const pollInterval = setInterval(tryDetect, 2000);
 
   // fs.watch as secondary (faster detection)
@@ -249,11 +263,10 @@ function watchForNewSession(ptyId: string, cwd: string) {
     }
   } catch {}
 
-  // No fixed timeout — clean up when PTY exits instead
+  // Clean up when PTY exits
   const exitCheck = setInterval(() => {
     const inst = ptyManager.list().find(i => i.id === ptyId);
     if (!inst || inst.status === 'exited') {
-      // PTY is gone — do one final detection attempt, then clean up
       tryDetect();
       cleanup();
     }
@@ -276,8 +289,8 @@ ipcMain.handle('pty:create', async (_e, options: { sessionId?: string; cwd?: str
     ptyManager.onData(id, (data) => mainWindow?.webContents.send(`pty:data:${id}`, data));
     ptyManager.onExit(id, (exitCode) => mainWindow?.webContents.send(`pty:exit:${id}`, exitCode));
 
-    // For new sessions (no sessionId), watch for the session file Claude creates
-    if (!options.sessionId && options.cwd) {
+    // Watch for session file creation (new sessions and /clear which creates a new session)
+    if (options.cwd) {
       watchForNewSession(id, options.cwd);
     }
 
