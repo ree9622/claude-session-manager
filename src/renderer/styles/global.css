@@ -533,13 +533,7 @@ body {
 
 .session-delete-btn {
   color: var(--text-muted);
-  opacity: 0;
-  transition: opacity 0.15s, color 0.15s;
-}
-
-.session-item:hover .session-delete-btn,
-.session-item.expanded .session-delete-btn {
-  opacity: 1;
+  transition: color 0.15s;
 }
 
 .session-delete-btn:hover {
