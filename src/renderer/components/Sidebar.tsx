@@ -89,6 +89,7 @@ function SessionItem({
         </button>
         <div className="session-item-actions" onClick={e => e.stopPropagation()}>
           <button className="btn btn-sm session-action-btn" onClick={onResume}>{t('session.open')}</button>
+          <button className="btn btn-sm session-action-btn session-delete-btn" onClick={() => { if (confirm(t('session.deleteConfirm'))) onDelete(); }} title={t('session.delete')}>✕</button>
           <button className="btn btn-sm session-action-btn" onClick={onToggleExpand}>{isExpanded ? '−' : '+'}</button>
         </div>
         <span className="session-time">{timeAgo(session.lastActivity)}</span>

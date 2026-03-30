@@ -81,6 +81,10 @@ Bilingual (EN/KO) via `src/renderer/i18n.ts`. 100+ translation keys, language st
 
 All CSS in `src/renderer/styles/global.css` — dark theme with purple accent (`#7c6bf5`). No CSS framework.
 
+## Workflow Rules
+
+- **작업 완료 후 반드시 커밋 + 로컬 설치까지 수행한다.** 코드 변경이 끝나면 git commit → `npm install && npm run build` → 로컬에서 최신 상태 유지. 커밋만 하고 빌드를 빠뜨리지 말 것.
+
 ## PTY↔Session Lifecycle Rules
 
 - **`watchForNewSession()`은 PTY가 살아있는 동안 계속 감시한다.** 초기 감지 후 종료하지 않음. Claude Code의 `/clear`가 새 세션 ID를 생성하므로, 동일 PTY에서 sessionId가 여러 번 바뀔 수 있다.

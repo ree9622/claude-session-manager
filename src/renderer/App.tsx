@@ -351,6 +351,7 @@ export function App() {
       cwd: session.cwd,
       status: 'running',
     }]);
+    setFocusedTerminal(ptyId);
     trackOpen({ sessionId: session.id, name, cwd: session.cwd });
   }, [activeTerminals, trackOpen]);
 
@@ -370,6 +371,7 @@ export function App() {
       cwd,
       status: 'running',
     }]);
+    setFocusedTerminal(ptyId);
     setShowNewSession(false);
   }, []);
 

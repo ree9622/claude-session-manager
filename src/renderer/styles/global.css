@@ -531,6 +531,22 @@ body {
   font-size: 11px !important;
 }
 
+.session-delete-btn {
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.session-item:hover .session-delete-btn,
+.session-item.expanded .session-delete-btn {
+  opacity: 1;
+}
+
+.session-delete-btn:hover {
+  color: #e74c3c !important;
+  background: rgba(231, 76, 60, 0.15) !important;
+}
+
 /* Favorite star toggle — independent of actions opacity */
 .favorite-toggle {
   background: none;

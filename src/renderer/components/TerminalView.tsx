@@ -165,7 +165,18 @@ export const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(
     const observer = new ResizeObserver(debouncedFit);
     observer.observe(containerRef.current);
 
+    // Secondary delayed focus for IME initialization after close-all → new session.
+    // The [isFocused] effect handles normal focus, but on Windows the OS IME
+    // can miss the initial attach when terminal DOM is freshly created.
+    const imeFocusTimer = setTimeout(() => {
+      if (terminalRef.current) {
+        terminalRef.current.blur();
+        terminalRef.current.focus();
+      }
+    }, 200);
+
     return () => {
+      clearTimeout(imeFocusTimer);
       if (fitTimerRef.current) cancelAnimationFrame(fitTimerRef.current);
       observer.disconnect();
       cleanupRef.current?.();
@@ -176,7 +187,13 @@ export const TerminalView = forwardRef<TerminalViewHandle, TerminalViewProps>(
   useEffect(() => {
     if (isFocused && terminalRef.current) {
       terminalRef.current.scrollToBottom();
-      terminalRef.current.focus();
+      // Delayed focus to ensure IME context is properly initialized on Windows.
+      // After terminal (re)mount, the hidden textarea needs a tick for the OS IME
+      // to attach its composition context — immediate focus can miss this.
+      const timer = setTimeout(() => {
+        terminalRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
     }
   }, [isFocused]);
 
