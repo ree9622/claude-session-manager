@@ -13,6 +13,7 @@ interface TerminalGridProps {
   notificationsEnabled: boolean;
   onFocusTerminal: (ptyId: string) => void;
   onKillTerminal: (ptyId: string) => void;
+  onDeleteSession: (ptyId: string) => void;
   onTerminalExit: (ptyId: string) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
   onRenameTerminal: (ptyId: string, newName: string) => void;
@@ -26,6 +27,7 @@ export function TerminalGrid({
   focusedTerminal,
   onFocusTerminal,
   onKillTerminal,
+  onDeleteSession,
   onReorder,
   onRenameTerminal,
   onViewModeChange,
@@ -232,6 +234,7 @@ export function TerminalGrid({
                   {viewMode === 'grid' && (
                     <button className="btn btn-sm" onClick={() => { onFocusTerminal(terminal.ptyId); onViewModeChange('focus'); }} title="Focus">⛶</button>
                   )}
+                  <button className="btn btn-sm btn-danger" onClick={() => { if (confirm(t('session.deleteConfirm'))) onDeleteSession(terminal.ptyId); }} title={t('terminal.deleteSession')}>🗑️</button>
                   <button className="btn btn-sm btn-danger" onClick={() => onKillTerminal(terminal.ptyId)} title={t('terminal.close')}>✕</button>
                 </div>
               </div>

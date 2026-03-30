@@ -475,6 +475,23 @@ export function App() {
     }
   }, []);
 
+  const handleDeleteSessionByPtyId = useCallback(async (ptyId: string) => {
+    const terminal = activeTerminals.find(t => t.ptyId === ptyId);
+    if (!terminal?.sessionId) return;
+    const session = sessions.find(s => s.id === terminal.sessionId);
+    if (session) await handleDeleteSession(session);
+  }, [activeTerminals, sessions, handleDeleteSession]);
+
+  const handleCloseSession = useCallback(async (session: SessionInfo) => {
+    const openTerminals = activeTerminals.filter(t => t.sessionId === session.id);
+    for (const t of openTerminals) {
+      await window.api.pty.kill(t.ptyId);
+      if (focusedTerminal === t.ptyId) setFocusedTerminal(null);
+      trackClose(t.sessionId);
+    }
+    setActiveTerminals(prev => prev.filter(t => t.sessionId !== session.id));
+  }, [activeTerminals, focusedTerminal, trackClose]);
+
   const handleCleanup = useCallback(async (days: number) => {
     const deleted = await window.api.sessions.deleteOld(days);
     if (deleted > 0) await loadSessions();
@@ -527,6 +544,7 @@ export function App() {
           onToggleHidden={handleToggleHidden}
           onTogglePinned={handleTogglePinned}
           onDeleteSession={handleDeleteSession}
+          onCloseSession={handleCloseSession}
           onRefresh={loadSessions}
           onCleanup={handleCleanup}
           loading={loading}
@@ -565,6 +583,7 @@ export function App() {
             notificationsEnabled={notificationsEnabled}
             onFocusTerminal={handleFocusTerminal}
             onKillTerminal={handleKillTerminal}
+            onDeleteSession={handleDeleteSessionByPtyId}
             onTerminalExit={handleTerminalExit}
             onReorder={handleReorderTerminals}
             onRenameTerminal={handleRenameTerminal}

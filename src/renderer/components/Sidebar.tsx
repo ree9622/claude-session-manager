@@ -19,6 +19,7 @@ interface SidebarProps {
   onNewSession: () => void;
   onGenerateName: (session: SessionInfo) => void;
   onDeleteSession: (session: SessionInfo) => void;
+  onCloseSession: (session: SessionInfo) => void;
   onToggleFavorite: (session: SessionInfo) => void;
   onToggleHidden: (session: SessionInfo) => void;
   onTogglePinned: (session: SessionInfo) => void;
@@ -51,12 +52,12 @@ function timeLabel(timestamp: number): string {
 
 function SessionItem({
   session, isSelected, isExpanded, isActive,
-  onToggleSelect, onToggleExpand, onResume, onGenerateName, onDelete,
+  onToggleSelect, onToggleExpand, onResume, onClose, onGenerateName, onDelete,
   onToggleFavorite, onToggleHidden, showProject,
 }: {
   session: SessionInfo; isSelected: boolean; isExpanded: boolean; isActive: boolean;
   onToggleSelect: () => void; onToggleExpand: () => void;
-  onResume: () => void; onGenerateName: () => void; onDelete: () => void;
+  onResume: () => void; onClose: () => void; onGenerateName: () => void; onDelete: () => void;
   onToggleFavorite: () => void; onToggleHidden: () => void; onTogglePinned: () => void;
   showProject: boolean;
 }) {
@@ -88,7 +89,7 @@ function SessionItem({
           {session.favorite ? '★' : '☆'}
         </button>
         <div className="session-item-actions" onClick={e => e.stopPropagation()}>
-          <button className="btn btn-sm session-action-btn" onClick={onResume}>{t('session.open')}</button>
+          <button className="btn btn-sm session-action-btn" onClick={isActive ? onClose : onResume}>{isActive ? t('session.close') : t('session.open')}</button>
           <button className="btn btn-sm session-action-btn session-delete-btn" onClick={() => { if (confirm(t('session.deleteConfirm'))) onDelete(); }} title={t('session.delete')}>✕</button>
           <button className="btn btn-sm session-action-btn" onClick={onToggleExpand}>{isExpanded ? '−' : '+'}</button>
         </div>
@@ -115,7 +116,7 @@ function SessionItem({
             )}
           </div>
           <div className="session-detail-actions" onClick={e => e.stopPropagation()}>
-            <button className="btn btn-primary btn-sm" onClick={onResume}>▶ {t('session.open')}</button>
+            <button className={`btn btn-sm ${isActive ? 'btn-danger' : 'btn-primary'}`} onClick={isActive ? onClose : onResume}>{isActive ? `■ ${t('session.close')}` : `▶ ${t('session.open')}`}</button>
             <button className="btn btn-sm" onClick={onGenerateName}>🏷️ {t('session.generateName')}</button>
             <button className="btn btn-sm" onClick={onToggleFavorite}>
               {session.favorite ? '★' : '☆'} {t('session.favorite')}
@@ -139,7 +140,7 @@ function SessionItem({
 export function Sidebar({
   sessions, selectedSessions, activeSessionIds, collapsed, style, onToggleCollapse,
   onToggleSelect, onResumeSession, onBulkResume, onSearch,
-  onNewSession, onGenerateName, onDeleteSession, onToggleFavorite, onToggleHidden, onTogglePinned, onRefresh, onCleanup, loading,
+  onNewSession, onGenerateName, onDeleteSession, onCloseSession, onToggleFavorite, onToggleHidden, onTogglePinned, onRefresh, onCleanup, loading,
 }: SidebarProps) {
   const [searchValue, setSearchValue] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('time');
@@ -268,6 +269,7 @@ export function Sidebar({
                         onToggleSelect={() => onToggleSelect(session.id)}
                         onToggleExpand={() => setExpandedSession(prev => prev === session.id ? null : session.id)}
                         onResume={() => onResumeSession(session)}
+                        onClose={() => onCloseSession(session)}
                         onGenerateName={() => onGenerateName(session)}
                         onDelete={() => onDeleteSession(session)}
                         onToggleFavorite={() => onToggleFavorite(session)}

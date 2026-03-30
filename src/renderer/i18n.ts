@@ -60,6 +60,8 @@ const translations = {
   'terminal.empty': { en: 'No active terminals', ko: '활성 터미널이 없습니다' },
   'terminal.emptyHint': { en: 'Click ▶ on a session or press "+ New Session"', ko: '▶ 버튼 또는 "+ 새 세션"으로 시작하세요' },
   'terminal.close': { en: 'Close', ko: '종료' },
+  'terminal.deleteSession': { en: 'Delete session', ko: '세션 삭제' },
+  'session.close': { en: 'Close', ko: '닫기' },
   'terminal.exited': { en: '[Session ended]', ko: '[세션 종료]' },
 
   // New session modal
