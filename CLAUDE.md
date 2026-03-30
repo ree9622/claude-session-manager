@@ -83,7 +83,7 @@ All CSS in `src/renderer/styles/global.css` — dark theme with purple accent (`
 
 ## Workflow Rules
 
-- **작업 완료 후 반드시 커밋 + 로컬 설치까지 수행한다.** 코드 변경이 끝나면 git commit → `npm install && npm run build` → 로컬에서 최신 상태 유지. 커밋만 하고 빌드를 빠뜨리지 말 것.
+- **작업 완료 후 반드시 커밋 + 로컬 설치 + 빌드까지 수행한다.** 코드 변경이 끝나면 git commit → `npm install` → `npm run build` → git push. 어느 단계도 빠뜨리지 말 것.
 
 ## PTY↔Session Lifecycle Rules
 
